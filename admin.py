@@ -4,13 +4,13 @@ from collections import defaultdict
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
-TABLE_URL = f"{SUPABASE_URL}/rest/v1/orders"
+ORDERS_URL = f"{SUPABASE_URL}/rest/v1/orders"
+IMAGES_URL = f"{SUPABASE_URL}/rest/v1/order_images"
 
-HEADERS = {
+BASE_HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
     "Content-Type": "application/json",
-    "Prefer": "return=minimal"
 }
 
 MOTTO_LABELS = {
@@ -26,7 +26,6 @@ STUFEN_LABELS = {
     2: "Abau Treppe",
 }
 
-# Minimal CSS — only for badges, which have no native equivalent
 BADGE_CSS = """
 <style>
 .paid-badge {
@@ -44,41 +43,57 @@ BADGE_CSS = """
 </style>
 """
 
-st.set_page_config(page_title="📋 Bestellungen", layout="wide")
+st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
 st.markdown(BADGE_CSS, unsafe_allow_html=True)
 
+
 # ── DATA FETCH ────────────────────────────────────────────────────────────────
-
-
 @st.cache_data(ttl=30)
 def fetch_orders():
     resp = requests.get(
-        TABLE_URL,
-        headers={**HEADERS, "Prefer": ""},
+        ORDERS_URL,
+        headers={**BASE_HEADERS, "Prefer": "return=representation"},
         params={"select": "*", "order": "created_at.asc"}
     )
-    if resp.status_code == 200:
-        return resp.json()
-    return []
+    return resp.json() if resp.status_code == 200 else []
+
+
+@st.cache_data(ttl=30)
+def fetch_images():
+    resp = requests.get(
+        IMAGES_URL,
+        headers={**BASE_HEADERS, "Prefer": "return=representation"},
+        params={"select": "*", "order": "order_id,position.asc"}
+    )
+    return resp.json() if resp.status_code == 200 else []
 
 
 def update_payment(order_id, paid: bool):
     resp = requests.patch(
-        f"{TABLE_URL}?id=eq.{order_id}",
+        f"{ORDERS_URL}?id=eq.{order_id}",
         json={"paid": paid},
-        headers=HEADERS
+        headers={**BASE_HEADERS, "Prefer": "return=minimal"}
     )
     return resp.status_code in [200, 201, 204]
 
 
-st.button("Daten aktualisieren", on_click=lambda: st.cache_data.clear())
+def build_image_map(images):
+    """Returns dict of order_id -> list of image URLs sorted by position."""
+    img_map = defaultdict(list)
+    for img in sorted(images, key=lambda x: x.get("position") or 0):
+        img_map[img["order_id"]].append(img["url"])
+    return img_map
+
+
+st.button("🔄 Daten aktualisieren", on_click=lambda: st.cache_data.clear())
 
 orders = fetch_orders()
+images = fetch_images()
+image_map = build_image_map(images)
 
 # ── AUTO-PATCH free orders ────────────────────────────────────────────────────
 for o in orders:
-    extra = o.get("extra_cost", 0) or 0
-    if extra == 0 and not o.get("paid", False):
+    if (o.get("extra_cost") or 0) == 0 and not o.get("paid", False):
         update_payment(o["id"], True)
 
 orders = fetch_orders()
@@ -91,40 +106,32 @@ for o in orders:
     is_paid = o.get("paid", False) or (o.get("extra_cost") or 0) == 0
     lk = o.get("leistungskurs", "")
     gk = o.get("grundkurs", "")
-    lk_typ = o.get("lk_typ") or []
-    gk_tpy = o.get("gk_tpy") or []
-    mottos = o.get("mottowoche") or []
-    stufen = o.get("stufenfotos") or []
-    extra_photos = o.get("extra_photos", 0) or 0
-
-    for t in lk_typ:
+    for t in (o.get("lk_typ") or []):
         picture_map[f"{lk} - {t}"].append((name, is_paid))
-    for t in gk_tpy:
+    for t in (o.get("gk_tpy") or []):
         picture_map[f"{gk} - {t}"].append((name, is_paid))
-    for m in mottos:
-        label = MOTTO_LABELS.get(m, f"Motto {m}")
-        picture_map[f"Mottowoche: {label}"].append((name, is_paid))
-    for s in stufen:
-        label = STUFEN_LABELS.get(s, f"Stufen {s}")
-        picture_map[f"Stufenfoto: {label}"].append((name, is_paid))
+    for m in (o.get("mottowoche") or []):
+        picture_map[f"Mottowoche: {MOTTO_LABELS.get(m, f'Motto {m}')}"].append(
+            (name, is_paid))
+    for s in (o.get("stufenfotos") or []):
+        picture_map[f"Stufenfoto: {STUFEN_LABELS.get(s, f'Stufen {s}')}"].append(
+            (name, is_paid))
+    extra_photos = o.get("extra_photos", 0) or 0
     if extra_photos > 0:
         picture_map["Zusatzfotos"].append(
             (f"{name} (x{extra_photos})", is_paid))
 
 # ── PAGE HEADER ───────────────────────────────────────────────────────────────
-st.markdown("## 📋 Admin Dashboard - Fotobestellungen")
+st.markdown("## Bestellungsverwaltung")
 st.caption(f"{len(orders)} Bestellungen gesamt")
 
-tab1, tab2 = st.tabs(["📸 Bildübersicht", "💶 Zahlungen"])
+tab1, tab2, tab3 = st.tabs(
+    ["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads"])
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 1 — PICTURE OVERVIEW
 # ═══════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown("### Gesamtanzahl pro Bild")
-    st.caption(
-        "Klicke auf ein Bild um zu sehen, wer es bestellt hat. 🔴 = noch nicht bezahlt")
-
     if not picture_map:
         st.info("Noch keine Bestellungen vorhanden.")
     else:
@@ -132,52 +139,45 @@ with tab1:
 
         for label, entries in sorted_pics:
             with st.expander(f"**{label}** — {len(entries)} Stück"):
-                st.write("**Bestellungen von:**")
-                # Paid and unpaid names as separate pill groups
-                paid_names = [n for n, paid in entries if paid]
-                unpaid_names = [n for n, paid in entries if not paid]
-                if paid_names:
-                    st.pills("✅ Bezahlt", paid_names,
-                             disabled=True, key=f"paid_{label}")
-                if unpaid_names:
-                    st.pills("🔴 Ausstehend", unpaid_names,
-                             disabled=True, key=f"unpaid_{label}")
+                st.markdown("**Bestellungen von:**")
+                tags = "".join(
+                    f'<span class="person-tag" style="background:#3b1a1a;border-color:#7a3030;color:#ff7070">{n}</span>'
+                    if not paid else
+                    f'<span class="person-tag">{n}</span>'
+                    for n, paid in entries
+                )
+                st.markdown(tags, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 2 — PAYMENTS
-# ═══════════════════════════════════════════════════════════════════
+# ════════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("### Zahlungsstatus")
 
     total_outstanding = sum(
-        (o.get("extra_cost") or 0)
-        for o in orders
+        (o.get("extra_cost") or 0) for o in orders
         if not o.get("paid", False) and (o.get("extra_cost") or 0) > 0
     )
     num_paid = sum(1 for o in orders if o.get("paid", False)
                    or (o.get("extra_cost") or 0) == 0)
-    num_unpaid = len(orders) - num_paid
-    # covered_payments comes from the last order iterated above — keep same logic as original
     covered_payments = sum(o.get("covered_payments", 0) or 0 for o in orders)
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Bezahlt / Gratis",        num_paid)
-    c2.metric("Ausstehend",              num_unpaid)
-    c3.metric("Offen gesamt",            f"{total_outstanding:.2f} €")
-    c4.metric("Wird von Kasse gezahlt",  f"{covered_payments:.2f} €")
+    c1.metric("Bezahlt / Gratis", num_paid)
+    c2.metric("Ausstehend", len(orders) - num_paid)
+    c3.metric("Offen gesamt", f"{total_outstanding:.2f} €")
+    c4.metric("Wird von Kasse gezahlt", f"{covered_payments:.2f} €")
 
     st.divider()
 
-    filter_col, _ = st.columns([2, 3])
-    with filter_col:
-        show_filter = st.selectbox(
-            "Anzeigen", ["Alle", "Nur Ausstehende", "Nur Bezahlte"])
+    show_filter = st.selectbox(
+        "Anzeigen", ["Alle", "Nur Ausstehende", "Nur Bezahlte"])
 
     for o in orders:
         extra = o.get("extra_cost") or 0
         is_free = extra == 0
         is_paid = o.get("paid", False) or is_free
-        order_id = o.get("id")
+        order_id = o["id"]
         name = o.get("name", "?")
 
         if show_filter == "Nur Ausstehende" and is_paid:
@@ -185,39 +185,38 @@ with tab2:
         if show_filter == "Nur Bezahlte" and not is_paid:
             continue
 
-        lk = o.get("leistungskurs", "")
-        gk = o.get("grundkurs", "")
         lk_typ = o.get("lk_typ") or []
         gk_tpy = o.get("gk_tpy") or []
-        mottos = o.get("mottowoche") or []
-        stufen = o.get("stufenfotos") or []
+        all_pics = (
+            [f"{o.get('leistungskurs', '')} {t}" for t in lk_typ] +
+            [f"{o.get('grundkurs', '')} {t}" for t in gk_tpy] +
+            [MOTTO_LABELS.get(m, f"Motto {m}") for m in (o.get("mottowoche") or [])] +
+            [STUFEN_LABELS.get(s, f"Stufen {s}")
+             for s in (o.get("stufenfotos") or [])]
+        )
         extra_photos = o.get("extra_photos", 0) or 0
-        img_count = o.get("image_count", 0)
-
-        all_pics = []
-        for t in lk_typ:
-            all_pics.append(f"{lk} {t}")
-        for t in gk_tpy:
-            all_pics.append(f"{gk} {t}")
-        for m in mottos:
-            all_pics.append(MOTTO_LABELS.get(m, f"Motto {m}"))
-        for s in stufen:
-            all_pics.append(STUFEN_LABELS.get(s, f"Stufen {s}"))
         if extra_photos > 0:
             all_pics.append(f"{extra_photos}x Zusatzfoto")
 
-        if is_free:
-            badge = '<span class="free-badge">GRATIS</span>'
-        elif is_paid:
-            badge = '<span class="paid-badge">✓ BEZAHLT</span>'
-        else:
-            badge = f'<span class="unpaid-badge">⏳ {extra:.2f} €</span>'
+        badge = (
+            '<span class="free-badge">GRATIS</span>' if is_free else
+            '<span class="paid-badge">✓ BEZAHLT</span>' if is_paid else
+            f'<span class="unpaid-badge">⏳ {extra:.2f} €</span>'
+        )
 
-        with st.expander(f"{name}  ·  {img_count} Bilder"):
+        with st.expander(f"{name}  ·  {o.get('image_count', 0)} Bilder"):
             st.write("**Bilder:** " + " · ".join(all_pics))
             st.markdown(badge, unsafe_allow_html=True)
-            st.write("")
 
+            # Show uploaded images inline
+            order_imgs = image_map.get(order_id, [])
+            if order_imgs:
+                st.write("**Hochgeladene Fotos:**")
+                img_cols = st.columns(min(len(order_imgs), 4))
+                for i, url in enumerate(order_imgs):
+                    img_cols[i % 4].image(url)
+
+            st.write("")
             if not is_free:
                 if is_paid:
                     if st.button("Als unbezahlt markieren", key=f"unpay_{order_id}"):
@@ -225,12 +224,30 @@ with tab2:
                         st.cache_data.clear()
                         st.rerun()
                 else:
-                    col_a, _ = st.columns([2, 3])
-                    with col_a:
-                        if st.button(f"✅ Als bezahlt markieren ({extra:.2f} €)", key=f"pay_{order_id}"):
-                            update_payment(order_id, True)
-                            st.cache_data.clear()
-                            st.rerun()
+                    if st.button(f"✅ Als bezahlt markieren ({extra:.2f} €)", key=f"pay_{order_id}"):
+                        update_payment(order_id, True)
+                        st.cache_data.clear()
+                        st.rerun()
             else:
                 st.caption(
                     "Keine Zusatzkosten - automatisch als bezahlt markiert.")
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 3 — UPLOADS (all images in a gallery)
+# ═══════════════════════════════════════════════════════════════════
+with tab3:
+    st.markdown("### Alle hochgeladenen Fotos")
+
+    order_lookup = {o["id"]: o.get("name", "?") for o in orders}
+    all_uploads = [(img["url"], order_lookup.get(img["order_id"], "?"), img.get("position", 0))
+                   for img in images]
+
+    if not all_uploads:
+        st.info("Noch keine Fotos hochgeladen.")
+    else:
+        st.caption(f"{len(all_uploads)} Fotos insgesamt")
+        cols = st.columns(4)
+        for i, (url, name, pos) in enumerate(all_uploads):
+            with cols[i % 4]:
+                st.image(url)
+                st.caption(f"{name} · #{pos}")
