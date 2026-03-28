@@ -6,6 +6,10 @@ SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 BUCKET_NAME = "images"
 MAX_IMAGES = 10
+# Prices
+NORMAL_IMAGE_PRICE = 0.15
+STUFENFOTO_PRICE = 0.20
+EXTRA_PHOTO_PRICE = 0.80
 
 HEADERS = {
     "apikey": SUPABASE_KEY,
@@ -34,7 +38,8 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
 
 st.set_page_config(page_title="Fotobestellung")
 st.title("📸 Fotobestellung")
-st.write("3 Bilder sind inklusive. Jedes weitere Bild kostet 0,15 €. Stufenfotos kosten 0,20 € extra. Eigene Fotos kosten 0,50 € extra.")
+st.write(
+    f"3 Bilder sind inklusive. Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f} €. Stufenfotos kosten {STUFENFOTO_PRICE:.2f} € extra. Eigene Fotos kosten {EXTRA_PHOTO_PRICE:.2f} € extra.")
 
 # Name
 name = st.text_input("Name")
@@ -75,7 +80,7 @@ selected_mottos = [v for l, v in motto_options.items(
 ) if st.session_state.get(f"{l}_checkbox")]
 
 # Stufenfotos
-st.subheader("Stufenfotos (0,20 € extra)")
+st.subheader(f"Stufenfotos ({STUFENFOTO_PRICE:.2f} € extra)")
 stufen_options = {"Pausenhof": 1, "Abau Treppe": 2}
 for label in stufen_options:
     st.checkbox(label, key=f"{label}_checkbox")
@@ -83,7 +88,7 @@ selected_stufen = [v for l, v in stufen_options.items(
 ) if st.session_state.get(f"{l}_checkbox")]
 
 # ── IMAGE UPLOAD ───────────────────────────────────────────────────────────────
-st.subheader("Eigene Fotos hochladen (0,50 € extra)")
+st.subheader(f"Eigene Fotos hochladen ({EXTRA_PHOTO_PRICE:.2f} € extra)")
 uploaded_files = st.file_uploader(
     "Fotos auswählen",
     type=["jpg", "jpeg", "png", "webp"],
@@ -99,14 +104,14 @@ anzahl_eigener_fotos = len(uploaded_files) if uploaded_files else 0
 num_images = len(lk_tpy) + len(gk_tpy) + len(selected_mottos)
 extra_cost = 0.0
 if num_images > 3:
-    extra_cost = (num_images - 3) * 0.15
-    covered_payments = 3 * 0.15
+    extra_cost = (num_images - 3) * NORMAL_IMAGE_PRICE
+    covered_payments = 3 * NORMAL_IMAGE_PRICE
 else:
-    covered_payments = num_images * 0.15
+    covered_payments = num_images * NORMAL_IMAGE_PRICE
 for _ in selected_stufen:
-    extra_cost += 0.20
+    extra_cost += STUFENFOTO_PRICE
 # Commented out as extra_photos_count is no longer used
-extra_cost += anzahl_eigener_fotos * 0.50
+extra_cost += anzahl_eigener_fotos * EXTRA_PHOTO_PRICE
 if extra_cost > 0:
     st.warning(f"⚠️ Zusatzkosten: {extra_cost:.2f} €")
 
