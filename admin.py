@@ -1,6 +1,14 @@
 import streamlit as st
 import requests
+import io
+from datetime import datetime
 from collections import defaultdict
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import cm
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.enums import TA_LEFT
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
@@ -47,6 +55,84 @@ st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
 st.markdown(BADGE_CSS, unsafe_allow_html=True)
 
 
+# ── PDF EXPORT ────────────────────────────────────────────────────────────────
+def generate_pdf(picture_map):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm,
+        topMargin=2*cm, bottomMargin=2*cm
+    )
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("Title", parent=styles["Title"],
+                                 fontSize=18, spaceAfter=6, alignment=TA_LEFT)
+    subtitle_style = ParagraphStyle("Sub", parent=styles["Normal"],
+                                    fontSize=9, textColor=colors.grey, spaceAfter=16)
+    heading_style = ParagraphStyle("Heading", parent=styles["Heading2"],
+                                   fontSize=12, spaceBefore=14, spaceAfter=6,
+                                   textColor=colors.HexColor("#1a1a2e"))
+    normal_style = ParagraphStyle(
+        "Normal", parent=styles["Normal"], fontSize=10)
+
+    story = []
+
+    # Title
+    story.append(Paragraph("Fotobestellung – Bildübersicht", title_style))
+    story.append(Paragraph(
+        f"Erstellt am {datetime.now().strftime('%d.%m.%Y um %H:%M')} Uhr  ·  {sum(len(v) for v in picture_map.values())} Bestellungen",
+        subtitle_style
+    ))
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    sorted_pics = sorted(picture_map.items(), key=lambda x: -len(x[1]))
+
+    for label, entries in sorted_pics:
+        story.append(
+            Paragraph(f"{label}  —  {len(entries)} Stück", heading_style))
+
+        paid_names = [n for n, paid in entries if paid]
+        unpaid_names = [n for n, paid in entries if not paid]
+
+        table_data = []
+
+        if paid_names:
+            table_data.append([
+                Paragraph("<b>✓ Bezahlt</b>", ParagraphStyle("", parent=normal_style,
+                          textColor=colors.HexColor("#1a7a5a"), fontSize=9)),
+                Paragraph(", ".join(paid_names), normal_style)
+            ])
+
+        if unpaid_names:
+            table_data.append([
+                Paragraph("<b>⏳ Ausstehend</b>", ParagraphStyle("", parent=normal_style,
+                          textColor=colors.HexColor("#cc3333"), fontSize=9)),
+                Paragraph(", ".join(unpaid_names), normal_style)
+            ])
+
+        if table_data:
+            t = Table(table_data, colWidths=[3.5*cm, 13*cm])
+            t.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("ROWBACKGROUNDS", (0, 0), (-1, -1),
+                 [colors.HexColor("#f9f9f9"), colors.white]),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+                ("LINEBELOW", (0, -1), (-1, -1), 0.5, colors.HexColor("#eeeeee")),
+            ]))
+            story.append(t)
+
+        story.append(Spacer(1, 6))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
+
 # ── DATA FETCH ────────────────────────────────────────────────────────────────
 @st.cache_data(ttl=30)
 def fetch_orders():
@@ -85,8 +171,6 @@ def build_image_map(images):
     return img_map
 
 
-st.button("🔄 Daten aktualisieren", on_click=lambda: st.cache_data.clear())
-
 orders = fetch_orders()
 images = fetch_images()
 image_map = build_image_map(images)
@@ -121,12 +205,26 @@ for o in orders:
         picture_map["Zusatzfotos"].append(
             (f"{name} (x{extra_photos})", is_paid))
 
-# ── PAGE HEADER ───────────────────────────────────────────────────────────────
-st.markdown("## Bestellungsverwaltung")
-st.caption(f"{len(orders)} Bestellungen gesamt")
 
-tab1, tab2, tab3 = st.tabs(
-    ["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads"])
+# Header
+st.markdown("## Bestellungsverwaltung")
+
+col_title, col_pdf, col_refresh = st.columns([5, 1, 2])
+with col_title:
+    st.caption(f"{len(orders)} Bestellungen gesamt")
+with col_pdf:
+    st.download_button(
+        label="⬇️ PDF Export",
+        data=generate_pdf(picture_map),
+        file_name=f"bildübersicht_{datetime.now
+                                   ().strftime('%Y%m%d_%H%M')}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
+with col_refresh:
+    st.button("🔄 Daten aktualisieren", on_click=lambda: st.cache_data.clear())
+
+tab1, tab2, tab3 = st.tabs(["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads"])
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 1 — PICTURE OVERVIEW
@@ -196,25 +294,41 @@ with tab2:
         )
         extra_photos = o.get("extra_photos", 0) or 0
         if extra_photos > 0:
-            all_pics.append(f"{extra_photos}x Zusatzfoto")
+            all_pics.append(f"Zusatzfotos: {extra_photos}")
 
         badge = (
             '<span class="free-badge">GRATIS</span>' if is_free else
             '<span class="paid-badge">✓ BEZAHLT</span>' if is_paid else
             f'<span class="unpaid-badge">⏳ {extra:.2f} €</span>'
         )
+        status_label = "🟦 GRATIS" if is_free else "✅ BEZAHLT" if is_paid else f"❌ {extra:.2f} €"
 
-        with st.expander(f"{name}  ·  {o.get('image_count', 0)} Bilder"):
-            st.write("**Bilder:** " + " · ".join(all_pics))
+        with st.expander(f"{name}: {status_label}"):
+            # Kurs photos
+            kurs_pics = (
+                [f"{o.get('leistungskurs', '')} {t}" for t in lk_typ] +
+                [f"{o.get('grundkurs', '')} {t}" for t in gk_tpy]
+            )
+            if kurs_pics:
+                st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))
+
+            # Mottowoche
+            mottos = [MOTTO_LABELS.get(m, f"Motto {m}")
+                      for m in (o.get("mottowoche") or [])]
+            if mottos:
+                st.write("**Mottowoche:** " + "  +  ".join(mottos))
+
+            # Stufenfotos
+            stufen = [STUFEN_LABELS.get(s, f"Stufen {s}")
+                      for s in (o.get("stufenfotos") or [])]
+            if stufen:
+                st.write("**Stufenfotos:** " + "  +  ".join(stufen))
+
+            # Eigene Fotos
+            if extra_photos > 0:
+                st.write(f"**Eigene Fotos:** {extra_photos}")
+            # st.write(" --- ".join(all_pics))
             st.markdown(badge, unsafe_allow_html=True)
-
-            # Show uploaded images inline
-            order_imgs = image_map.get(order_id, [])
-            if order_imgs:
-                st.write("**Hochgeladene Fotos:**")
-                img_cols = st.columns(min(len(order_imgs), 4))
-                for i, url in enumerate(order_imgs):
-                    img_cols[i % 4].image(url)
 
             st.write("")
             if not is_free:
@@ -228,9 +342,6 @@ with tab2:
                         update_payment(order_id, True)
                         st.cache_data.clear()
                         st.rerun()
-            else:
-                st.caption(
-                    "Keine Zusatzkosten - automatisch als bezahlt markiert.")
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 3 — UPLOADS (all images in a gallery)
