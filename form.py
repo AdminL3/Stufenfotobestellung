@@ -178,7 +178,6 @@ if st.button("Absenden", type="primary"):
         "stufenfotos": selected_stufen,
         "extra_photos": anzahl_eigener_fotos,
         "image_count": num_images,
-        "extra_cost": extra_cost,
         "paid": extra_cost == 0,
         "created_at": datetime.now().isoformat(),
     }
