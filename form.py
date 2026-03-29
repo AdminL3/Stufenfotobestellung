@@ -11,6 +11,36 @@ NORMAL_IMAGE_PRICE = 0.15
 STUFENFOTO_PRICE = 0.20
 EXTRA_PHOTO_PRICE = 0.80
 
+PREVIEW_IMAGES = {
+    "lk": {
+        "Englisch": {
+            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        },
+        "Geschichte": {
+            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        },
+    },
+    "gk": {
+        "Grundkurs 1": {
+            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        }
+    },
+    "mottowoche": {
+        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        3: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        4: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        5: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+    },
+    "stufenfotos": {
+        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+    }
+}
+
 HEADERS = {
     "apikey": SUPABASE_KEY,
     "Authorization": f"Bearer {SUPABASE_KEY}",
@@ -112,11 +142,75 @@ for _ in selected_stufen:
     extra_cost += STUFENFOTO_PRICE
 # Commented out as extra_photos_count is no longer used
 extra_cost += anzahl_eigener_fotos * EXTRA_PHOTO_PRICE
+
+
+# Overview
+st.divider()
+bestellung = []
+with st.expander("Überblick deiner Bestellung"):
+
+    # Kursfotos
+    for t in lk_tpy:
+        img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
+        if img_url:
+            st.image(
+                img_url,
+                caption=f"{lk_choice} - {t}",
+                use_container_width=True
+            )
+    for t in gk_tpy:
+        img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
+        if img_url:
+            st.image(
+                img_url,
+                caption=f"{gk_choice} - {t}",
+                use_container_width=True
+            )
+
+    # Mottowoche
+    motto_label_map = {v: k for k, v in motto_options.items()}
+    for m in selected_mottos:
+        img_url = PREVIEW_IMAGES["mottowoche"].get(m)
+        if img_url:
+            st.image(
+                img_url,
+                caption=f"Mottowoche - {motto_label_map.get(m, m)}",
+                use_container_width=True
+            )
+
+    # Stufenfotos
+    stufen_label_map = {v: k for k, v in stufen_options.items()}
+    for s in selected_stufen:
+        img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
+        if img_url:
+            st.image(
+                img_url,
+                caption=f"Stufenfoto - {stufen_label_map.get(s, s)}",
+                use_container_width=True
+            )
+
+    if not bestellung and anzahl_eigener_fotos == 0:
+        st.caption("Noch nichts ausgewählt.")
+    else:
+        for item in bestellung:
+            st.write(item)
+
+        # Uploaded images
+        if uploaded_files:
+            for image in uploaded_files:
+                st.image(
+                    image,
+                    caption=f"Eigenes Foto - {image.name}",
+                    use_container_width=True
+                )
+
 if extra_cost > 0:
-    st.warning(f"⚠️ Zusatzkosten: {extra_cost:.2f} €")
+    st.warning(f"⚠️ Zusatzkosten: **{extra_cost:.2f} €**")
+else:
+    st.success("✅ Keine Zusatzkosten - alles inklusive!")
 
 # ── SUBMIT ────────────────────────────────────────────────────────────────────
-if st.button("Absenden"):
+if st.button("Absenden", type="primary"):
     if not name:
         st.error("Bitte Namen eingeben.")
         st.stop()
