@@ -50,7 +50,7 @@ BADGE_CSS = """
     border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600;
 }
 
-/* Person tags in Tab 1 — inline-flex fixes vertical offset */
+/* Person tags in Tab 1 - inline-flex fixes vertical offset */
 .tag-wrap {
     display: flex; flex-wrap: wrap; gap: 6px;
     margin-top: 4px; align-items: center;
@@ -182,7 +182,7 @@ def generate_pdf(picture_map):
 
     for label, entries in sorted_pics:
         story.append(
-            Paragraph(f"{label}  —  {len(entries)} Stück", heading_style))
+            Paragraph(f"{label}  -  {len(entries)} Bestellungen", heading_style))
 
         paid_names = [n for n, paid in entries if paid]
         unpaid_names = [n for n, paid in entries if not paid]
@@ -233,7 +233,6 @@ image_map = build_image_map(images)
 for o in orders:
     if (o.get("extra_cost") or 0) == 0 and not o.get("paid", False):
         update_payment(o["id"], True)
-orders = fetch_orders()
 
 picture_map = build_picture_map(orders)
 
@@ -257,10 +256,10 @@ with col_pdf:
 tab1, tab2, tab3 = st.tabs(["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads"])
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 1 — PICTURE OVERVIEW
+# TAB 1 - PICTURE OVERVIEW
 # ═══════════════════════════════════════════════════════════════════
-TAG_PAID = "display:inline-flex;align-items:center;background:#0d3b2e;border:1px solid #1a7a5a;color:#4dffa6;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;"
-TAG_UNPAID = "display:inline-flex;align-items:center;background:#3b1a1a;border:1px solid #7a3030;color:#ff7070;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;"
+TAG_PAID = "display:flex;align-items:center;background:#0d3b2e;border:1px solid #1a7a5a;color:#4dffa6;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
+TAG_UNPAID = "display:flex;align-items:center;background:#3b1a1a;border:1px solid #7a3030;color:#ff7070;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
 
 with tab1:
     if not picture_map:
@@ -270,17 +269,15 @@ with tab1:
             paid_names = [n for n, paid in entries if paid]
             unpaid_names = [n for n, paid in entries if not paid]
 
-            with st.expander(f"{label} — {len(entries)} Stück"):
+            with st.expander(f"{label} - {len(entries)} Bestellungen"):
                 html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center;">'
-                for n in paid_names:
-                    html += f'<span style="{TAG_PAID}">✓ {n}</span>'
-                for n in unpaid_names:
-                    html += f'<span style="{TAG_UNPAID}">⏳ {n}</span>'
+                for n, paid in entries:
+                    html += f'<span style="{TAG_PAID if paid else TAG_UNPAID}">{n}</span>'
                 html += '</div>'
                 st.markdown(html, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 2 — PAYMENTS
+# TAB 2 - PAYMENTS
 # ═══════════════════════════════════════════════════════════════════
 with tab2:
     total_outstanding = sum(
@@ -373,14 +370,15 @@ with tab2:
                     "Keine Zusatzkosten - automatisch als bezahlt markiert.")
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 3 — UPLOADS
+# TAB 3 - UPLOADS
 # ═══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("### Alle hochgeladenen Fotos")
 
     order_lookup = {o["id"]: o.get("name", "?") for o in orders}
     all_uploads = [
-        (img["url"], order_lookup.get(img["order_id"], "?"), img.get("position", 0))
+        (img["url"], order_lookup.get(img["order_id"], "?"),
+         img.get("position", 0), img["order_id"])
         for img in images
     ]
 
@@ -388,8 +386,41 @@ with tab3:
         st.info("Noch keine Fotos hochgeladen.")
     else:
         st.caption(f"{len(all_uploads)} Fotos insgesamt")
+
+        # ── ZIP ALL IMAGES ────────────────────────────────────────
+        def create_zip_all(images_list):
+            buffer = io.BytesIO()
+            with zipfile.ZipFile(buffer, "w") as z:
+                for img in images_list:
+                    url = img["url"]
+                    order_id = img["order_id"]
+                    pos = img.get("position", 0)
+                    person_name = order_lookup.get(
+                        order_id, "unknown").replace(" ", "_")
+                    response = requests.get(url)
+                    if response.status_code == 200:
+                        filename = f"{person_name}_{order_id[:8]}_{pos:02d}.jpg"
+                        z.writestr(filename, response.content)
+            buffer.seek(0)
+            return buffer
+
+        if st.button("📦 ZIP vorbereiten"):
+            with st.spinner("Bilder werden heruntergeladen..."):
+                st.session_state["zip_buffer"] = create_zip_all(images)
+
+        if "zip_buffer" in st.session_state:
+            st.download_button(
+                label="📥 Alle Bilder herunterladen (ZIP)",
+                data=st.session_state["zip_buffer"],
+                file_name="Bilder.zip",
+                mime="application/zip",
+            )
+
+        st.divider()
+
+        # ── GRID ──────────────────────────────────────────────────
         cols = st.columns(4)
-        for i, (url, name, pos) in enumerate(all_uploads):
+        for i, (url, name, pos, _) in enumerate(all_uploads):
             with cols[i % 4]:
                 st.image(url)
                 st.caption(f"{name} · #{pos}")
