@@ -1,16 +1,15 @@
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4
+from collections import defaultdict
+from reportlab.lib.units import cm
+from reportlab.lib import colors
+from datetime import datetime
 import streamlit as st
 import requests
+import zipfile
 import io
-from collections import defaultdict
-from datetime import datetime
-
-# reportlab imports for PDF generation
-from reportlab.lib.pagesizes import A4
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
@@ -171,7 +170,7 @@ def generate_pdf(picture_map):
     story = []
 
     # Title
-    story.append(Paragraph("Fotobestellung – Bildübersicht", title_style))
+    story.append(Paragraph("Fotobestellung - Bildübersicht", title_style))
     story.append(Paragraph(
         f"Erstellt am {datetime.now().strftime('%d.%m.%Y um %H:%M')} Uhr  ·  {sum(len(v) for v in picture_map.values())} Bestellungen",
         subtitle_style
@@ -371,7 +370,7 @@ with tab2:
                         st.rerun()
             else:
                 st.caption(
-                    "Keine Zusatzkosten – automatisch als bezahlt markiert.")
+                    "Keine Zusatzkosten - automatisch als bezahlt markiert.")
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 3 — UPLOADS
