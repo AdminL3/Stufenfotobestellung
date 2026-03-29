@@ -276,6 +276,7 @@ with tab1:
                 html += '</div>'
                 st.markdown(html, unsafe_allow_html=True)
 
+
 # ═══════════════════════════════════════════════════════════════════
 # TAB 2 - PAYMENTS
 # ═══════════════════════════════════════════════════════════════════
@@ -296,20 +297,38 @@ with tab2:
 
     st.divider()
 
-    show_filter = st.selectbox(
-        "Anzeigen", ["Alle", "Nur Ausstehende", "Nur Bezahlte"])
+    filter_col, search_col = st.columns([3, 5])
+    with filter_col:
+        show_filter = st.selectbox(
+            "Anzeigen", ["Alle", "Nur Ausstehende", "Nur Bezahlte"])
+    with search_col:
+        search_query = st.text_input(
+            "🔍 Name suchen", placeholder="z.B. Max Mustermann")
 
+    filtered_orders = []
     for o in orders:
         extra = o.get("extra_cost") or 0
         is_free = extra == 0
         is_paid = o.get("paid", False) or is_free
-        order_id = o["id"]
-        name = o.get("name", "?")
 
         if show_filter == "Nur Ausstehende" and is_paid:
             continue
         if show_filter == "Nur Bezahlte" and not is_paid:
             continue
+        if search_query and search_query.lower() not in o.get("name", "").lower():
+            continue
+
+        filtered_orders.append(o)
+
+    if search_query and not filtered_orders:
+        st.warning(f"Keine Bestellung für '{search_query}' gefunden.")
+
+    for o in filtered_orders:
+        extra = o.get("extra_cost") or 0
+        is_free = extra == 0
+        is_paid = o.get("paid", False) or is_free
+        order_id = o["id"]
+        name = o.get("name", "?")
 
         lk_typ = o.get("lk_typ") or []
         gk_tpy = o.get("gk_tpy") or []
@@ -368,6 +387,7 @@ with tab2:
             else:
                 st.caption(
                     "Keine Zusatzkosten - automatisch als bezahlt markiert.")
+
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 3 - UPLOADS
