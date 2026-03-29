@@ -248,7 +248,7 @@ with col_pdf:
     st.download_button(
         label="⬇️ PDF Exportieren",
         data=generate_pdf(picture_map),
-        file_name=f"bildübersicht_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+        file_name=f"Bestellungsübersicht.pdf",
         mime="application/pdf",
         use_container_width=True,
     )
@@ -287,13 +287,18 @@ with tab2:
     )
     num_paid = sum(1 for o in orders if o.get("paid", False)
                    or (o.get("extra_cost") or 0) == 0)
-    covered_payments = sum(o.get("covered_payments", 0) or 0 for o in orders)
+    covered_payments = 0
+    NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAY = 0.15
+    for o in orders:
+        num_images = o.get("image_count", 0)
+        covered_payments += min(3, num_images) * \
+            NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAY
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Bezahlt / Gratis", num_paid)
     c2.metric("Ausstehend", len(orders) - num_paid)
-    c3.metric("Offen gesamt", f"{total_outstanding:.2f} €")
-    c4.metric("Wird von Kasse gezahlt", f"{covered_payments:.2f} €")
+    c3.metric("Offen gesamt", f"{total_outstanding:.2f}€")
+    c4.metric("Wird von Kasse gezahlt", f"{covered_payments:.2f}€")
 
     st.divider()
 
@@ -303,7 +308,7 @@ with tab2:
             "Anzeigen", ["Alle", "Nur Ausstehende", "Nur Bezahlte"])
     with search_col:
         search_query = st.text_input(
-            "🔍 Name suchen", placeholder="z.B. Max Mustermann")
+            "🔍 Name suchen", placeholder="Max Mustermann")
 
     filtered_orders = []
     for o in orders:
@@ -336,13 +341,13 @@ with tab2:
 
         badge = (
             '<span class="free-badge">GRATIS</span>' if is_free else
-            '<span class="paid-badge">✓ BEZAHLT</span>' if is_paid else
-            f'<span class="unpaid-badge">⏳ {extra:.2f} €</span>'
+            '<span class="paid-badge">BEZAHLT</span>' if is_paid else
+            f'<span class="unpaid-badge">{extra:.2f}€</span>'
         )
-        status_label = "🟦 GRATIS" if is_free else "✅ BEZAHLT" if is_paid else f"❌ {extra:.2f} €"
+        status_label = "🟦 GRATIS" if is_free else "✅ BEZAHLT" if is_paid else f"❌ {extra:.2f}€"
         created = o.get("created_at", "")[:16].replace("T", " ")
 
-        with st.expander(f"{name}: {status_label}  ·  {created}"):
+        with st.expander(f"{name}: {status_label}"):
             st.markdown(badge, unsafe_allow_html=True)
 
             kurs_pics = (
@@ -380,7 +385,7 @@ with tab2:
                         st.cache_data.clear()
                         st.rerun()
                 else:
-                    if st.button(f"✅ Als bezahlt markieren ({extra:.2f} €)", key=f"pay_{order_id}"):
+                    if st.button(f"✅ Als bezahlt markieren ({extra:.2f}€)", key=f"pay_{order_id}"):
                         update_payment(order_id, True)
                         st.cache_data.clear()
                         st.rerun()
