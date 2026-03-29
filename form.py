@@ -8,8 +8,9 @@ BUCKET_NAME = "images"
 MAX_IMAGES = 10
 # Prices
 NORMAL_IMAGE_PRICE = 0.15
-STUFENFOTO_PRICE = 0.20
-EXTRA_PHOTO_PRICE = 0.80
+NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS = 0.11
+STUFENFOTO_PRICE = 0.25
+EXTRA_PHOTO_PRICE = 0.50
 
 PREVIEW_IMAGES = {
     "lk": {
@@ -69,7 +70,7 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
 st.set_page_config(page_title="Fotobestellung")
 st.title("📸 Fotobestellung")
 st.write(
-    f"3 Bilder sind inklusive. Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f} €. Stufenfotos kosten {STUFENFOTO_PRICE:.2f} € extra. Eigene Fotos kosten {EXTRA_PHOTO_PRICE:.2f} € extra.")
+    f"3 Bilder sind inklusive. Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€. Größere Stufenfotos kosten {STUFENFOTO_PRICE:.2f}€. Eigene Fotos kosten {EXTRA_PHOTO_PRICE:.2f}€.")
 
 # Name
 name = st.text_input("Name")
@@ -110,7 +111,8 @@ selected_mottos = [v for l, v in motto_options.items(
 ) if st.session_state.get(f"{l}_checkbox")]
 
 # Stufenfotos
-st.subheader(f"Stufenfotos ({STUFENFOTO_PRICE:.2f} € extra)")
+st.subheader(f"Stufenfotos ({STUFENFOTO_PRICE:.2f}€)")
+st.write(f"{STUFENFOTO_PRICE:.2f}€ pro Bild - 12,7 x 17,8cm - matt")
 stufen_options = {"Pausenhof": 1, "Abau Treppe": 2}
 for label in stufen_options:
     st.checkbox(label, key=f"{label}_checkbox")
@@ -118,7 +120,9 @@ selected_stufen = [v for l, v in stufen_options.items(
 ) if st.session_state.get(f"{l}_checkbox")]
 
 # ── IMAGE UPLOAD ───────────────────────────────────────────────────────────────
-st.subheader(f"Eigene Fotos hochladen ({EXTRA_PHOTO_PRICE:.2f} € extra)")
+st.subheader(
+    f"Eigene Fotos hochladen")
+st.write(f"{EXTRA_PHOTO_PRICE:.2f}€ pro Bild - 10,2 x 15,2cm - matt")
 uploaded_files = st.file_uploader(
     "Fotos auswählen",
     type=["jpg", "jpeg", "png", "webp"],
@@ -135,9 +139,6 @@ num_images = len(lk_tpy) + len(gk_tpy) + len(selected_mottos)
 extra_cost = 0.0
 if num_images > 3:
     extra_cost = (num_images - 3) * NORMAL_IMAGE_PRICE
-    covered_payments = 3 * NORMAL_IMAGE_PRICE
-else:
-    covered_payments = num_images * NORMAL_IMAGE_PRICE
 for _ in selected_stufen:
     extra_cost += STUFENFOTO_PRICE
 # Commented out as extra_photos_count is no longer used
@@ -205,7 +206,7 @@ with st.expander("Überblick deiner Bestellung"):
                 )
 
 if extra_cost > 0:
-    st.warning(f"⚠️ Zusatzkosten: **{extra_cost:.2f} €**")
+    st.warning(f"⚠️ Zusatzkosten: **{extra_cost:.2f}€**")
 else:
     st.success("✅ Keine Zusatzkosten - alles inklusive!")
 
@@ -231,7 +232,6 @@ if st.button("Absenden", type="primary"):
         "extra_photos": anzahl_eigener_fotos,
         "image_count": num_images,
         "extra_cost": extra_cost,
-        "covered_payments": covered_payments,
         "paid": extra_cost == 0,
         "created_at": datetime.now().isoformat(),
     }
