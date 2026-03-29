@@ -1,0 +1,75 @@
+import streamlit as st
+
+MOTTO_LABELS = {
+    1: "Mo - Mafia",
+    2: "Di - Gender Swap",
+    3: "Mi - Kindheitshelden",
+    4: "Do - Straight out of Bed",
+    5: "Fr - Gruppenkostüm",
+}
+
+STUFEN_LABELS = {
+    1: "Pausenhof",
+    2: "Abau Treppe",
+}
+
+SUPABASE_URL = st.secrets["SUPABASE_URL"]
+SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
+ORDERS_URL = f"{SUPABASE_URL}/rest/v1/orders"
+IMAGES_URL = f"{SUPABASE_URL}/rest/v1/order_images"
+
+
+BASE_HEADERS = {
+    "apikey": SUPABASE_KEY,
+    "Authorization": f"Bearer {SUPABASE_KEY}",
+    "Content-Type": "application/json",
+}
+
+BADGE_CSS = """
+<style>
+.paid-badge {
+    background: #0d3b2e; border: 1px solid #1a7a5a; color: #4dffa6;
+    border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600;
+}
+.unpaid-badge {
+    background: #3b1a1a; border: 1px solid #7a3030; color: #ff7070;
+    border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600;
+}
+.free-badge {
+    background: #1a2a3b; border: 1px solid #3a6a9a; color: #70c0ff;
+    border-radius: 4px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600;
+}
+
+/* Person tags in Tab 1 - inline-flex fixes vertical offset */
+.tag-wrap {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin-top: 4px; align-items: center;
+}
+.tag-paid {
+    display: inline-flex; align-items: center;
+    background: #0d3b2e; border: 1px solid #1a7a5a; color: #4dffa6;
+    border-radius: 20px; padding: 3px 12px; font-size: 0.82rem; font-weight: 500;
+    line-height: 1.4;
+}
+.tag-unpaid {
+    display: inline-flex; align-items: center;
+    background: #3b1a1a; border: 1px solid #7a3030; color: #ff7070;
+    border-radius: 20px; padding: 3px 12px; font-size: 0.82rem; font-weight: 500;
+    line-height: 1.4;
+}
+
+/* Expander border colors for Tab 2 */
+.expander-green details {
+    border-left: 4px solid #1a7a5a !important;
+}
+.expander-blue details {
+    border-left: 4px solid #3a6a9a !important;
+}
+.expander-red details {
+    border-left: 4px solid #7a3030 !important;
+}
+</style>
+"""
+
+TAG_PAID = "display:flex;align-items:center;background:#0d3b2e;border:1px solid #1a7a5a;color:#4dffa6;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
+TAG_UNPAID = "display:flex;align-items:center;background:#3b1a1a;border:1px solid #7a3030;color:#ff7070;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
