@@ -1,70 +1,27 @@
 import streamlit as st
 import requests
 from datetime import datetime
+from constants import (
+    BASE_HEADERS,
+    LK_OPTIONS,
+    GK_OPTIONS,
+    MOTTO_LABELS,
+    PREVIEW_IMAGES
+)
+from config import (
+    MAX_IMAGES,
+    NORMAL_IMAGE_PRICE,
+    STUFENFOTO_PRICE,
+    EXTRA_PHOTO_PRICE
+)
 
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
-BUCKET_NAME = "images"
-MAX_IMAGES = 10
-# Prices
-NORMAL_IMAGE_PRICE = 0.15
-NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS = 0.11
-STUFENFOTO_PRICE = 0.25
-EXTRA_PHOTO_PRICE = 0.50
+from constants import (
+    SUPABASE_URL
+)
 
-PREVIEW_IMAGES = {
-    "lk": {
-        "Englisch": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Geschichte": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-    },
-    "gk": {
-        "Grundkurs 1": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        }
-    },
-    "mottowoche": {
-        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        3: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        4: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        5: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-    },
-    "stufenfotos": {
-        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-    }
-}
-
-HEADERS = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": f"Bearer {SUPABASE_KEY}",
-    "Content-Type": "application/json",
-    # 👈 needed to get the inserted row back (incl. id)
-    "Prefer": "return=representation"
-}
-
-
-def upload_image_to_supabase(file, filename: str) -> str | None:
-    upload_url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}/{filename}"
-    upload_headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
-        "Content-Type": file.type,
-    }
-    response = requests.post(
-        upload_url, headers=upload_headers, data=file.getvalue())
-    if response.status_code in [200, 201]:
-        return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{filename}"
-    else:
-        st.error(f"❌ Bild-Upload fehlgeschlagen ({filename}): {response.text}")
-        return None
+from utils import (
+    upload_image_to_supabase
+)
 
 
 st.set_page_config(page_title="Fotobestellung")
@@ -77,9 +34,7 @@ name = st.text_input("Name")
 
 # Leistungskurs
 st.subheader("Leistungskurs Foto")
-lk_options = ["Englisch", "Geschichte", "Geo",
-              "Sport", "Kunst", "Französisch", "Physik"]
-lk_choice = st.radio("Leistungskurs auswählen", lk_options)
+lk_choice = st.radio("Leistungskurs auswählen", LK_OPTIONS)
 st.write("Typ auswählen:")
 lk_tpy = []
 if st.checkbox("Normalbild", key="lk_normal"):
@@ -89,8 +44,7 @@ if st.checkbox("Spaßbild", key="lk_spass"):
 
 # Grundkurs
 st.subheader("Grundkurs Foto")
-gk_options = ["Grundkurs 1", "Grundkurs 2", "Grundkurs 3", "Grundkurs 4"]
-gk_choice = st.radio("Grundkurs auswählen", gk_options)
+gk_choice = st.radio("Grundkurs auswählen", GK_OPTIONS)
 st.write("Typ auswählen:")
 gk_tpy = []
 if st.checkbox("Normalbild", key="gk_normal"):
@@ -100,15 +54,11 @@ if st.checkbox("Spaßbild", key="gk_spass"):
 
 # Mottowoche
 st.subheader("Mottowoche")
-motto_options = {
-    "Montag - Mafia": 1, "Dienstag - Gender Swap": 2,
-    "Mittwoch - Kindheitshelden": 3, "Donnerstag - Straight out of Bed": 4,
-    "Freitag - Gruppenkostüm": 5,
-}
-for label in motto_options:
+
+for label in MOTTO_LABELS.values():
     st.checkbox(label, key=f"{label}_checkbox")
-selected_mottos = [v for l, v in motto_options.items(
-) if st.session_state.get(f"{l}_checkbox")]
+selected_mottos = [v for l, v in MOTTO_LABELS.items()
+                   if st.session_state.get(f"{l}_checkbox")]
 
 # Stufenfotos
 st.subheader(f"Stufenfotos ({STUFENFOTO_PRICE:.2f}€)")
@@ -169,7 +119,7 @@ with st.expander("Überblick deiner Bestellung"):
             )
 
     # Mottowoche
-    motto_label_map = {v: k for k, v in motto_options.items()}
+    motto_label_map = {v: k for k, v in MOTTO_LABELS.items()}
     for m in selected_mottos:
         img_url = PREVIEW_IMAGES["mottowoche"].get(m)
         if img_url:
@@ -190,20 +140,17 @@ with st.expander("Überblick deiner Bestellung"):
                 use_container_width=True
             )
 
-    if not bestellung and anzahl_eigener_fotos == 0:
-        st.caption("Noch nichts ausgewählt.")
-    else:
-        for item in bestellung:
-            st.write(item)
+    for item in bestellung:
+        st.write(item)
 
-        # Uploaded images
-        if uploaded_files:
-            for image in uploaded_files:
-                st.image(
-                    image,
-                    caption=f"Eigenes Foto - {image.name}",
-                    use_container_width=True
-                )
+    # Uploaded images
+    if uploaded_files:
+        for image in uploaded_files:
+            st.image(
+                image,
+                caption=f"Eigenes Foto - {image.name}",
+                use_container_width=True
+            )
 
 if extra_cost > 0:
     st.warning(f"⚠️ Zusatzkosten: **{extra_cost:.2f}€**")
@@ -239,7 +186,7 @@ if st.button("Absenden", type="primary"):
     order_response = requests.post(
         f"{SUPABASE_URL}/rest/v1/orders",
         json=order_data,
-        headers=HEADERS
+        headers={**BASE_HEADERS, "Prefer": "return=representation"}
     )
 
     if order_response.status_code not in [200, 201]:
@@ -270,7 +217,7 @@ if st.button("Absenden", type="primary"):
                 img_response = requests.post(
                     f"{SUPABASE_URL}/rest/v1/order_images",
                     json=img_data,
-                    headers={**HEADERS, "Prefer": "return=minimal"}
+                    headers={**BASE_HEADERS, "Prefer": "return=minimal"}
                 )
                 if img_response.status_code not in [200, 201, 204]:
                     st.error(

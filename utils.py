@@ -6,6 +6,12 @@ from collections import defaultdict
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from datetime import datetime
+import streamlit as st
+from constants import (
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    BUCKET_NAME
+)
 import requests
 import zipfile
 import io
@@ -144,3 +150,19 @@ def create_zip_all(images_list, order_lookup):
                 z.writestr(filename, response.content)
     buffer.seek(0)
     return buffer
+
+
+def upload_image_to_supabase(file, filename: str) -> str | None:
+    upload_url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}/{filename}"
+    upload_headers = {
+        "apikey": SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type": file.type,
+    }
+    response = requests.post(
+        upload_url, headers=upload_headers, data=file.getvalue())
+    if response.status_code in [200, 201]:
+        return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{filename}"
+    else:
+        st.error(f"❌ Bild-Upload fehlgeschlagen ({filename}): {response.text}")
+        return None

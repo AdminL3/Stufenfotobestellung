@@ -1,4 +1,7 @@
 import streamlit as st
+LK_OPTIONS = ["Englisch", "Geschichte", "Geo",
+              "Sport", "Kunst", "Französisch", "Physik"]
+GK_OPTIONS = ["Grundkurs 1", "Grundkurs 2", "Grundkurs 3", "Grundkurs 4"]
 
 MOTTO_LABELS = {
     1: "Mo - Mafia",
@@ -13,6 +16,7 @@ STUFEN_LABELS = {
     2: "Abau Treppe",
 }
 
+BUCKET_NAME = "images"
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
 ORDERS_URL = f"{SUPABASE_URL}/rest/v1/orders"
@@ -73,3 +77,34 @@ BADGE_CSS = """
 
 TAG_PAID = "display:flex;align-items:center;background:#0d3b2e;border:1px solid #1a7a5a;color:#4dffa6;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
 TAG_UNPAID = "display:flex;align-items:center;background:#3b1a1a;border:1px solid #7a3030;color:#ff7070;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
+
+
+PREVIEW_IMAGES = {
+    "lk": {
+        "Englisch": {
+            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        },
+        "Geschichte": {
+            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        },
+    },
+    "gk": {
+        "Grundkurs 1": {
+            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        }
+    },
+    "mottowoche": {
+        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        3: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        4: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        5: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+    },
+    "stufenfotos": {
+        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
+        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+    }
+}
