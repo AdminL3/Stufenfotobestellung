@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from config import (
     NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS,
     AMOUNT_OF_FREE_IMAGES
@@ -8,7 +9,8 @@ from constants import (
     STUFEN_LABELS,
     BADGE_CSS,
     TAG_PAID,
-    TAG_UNPAID
+    TAG_UNPAID,
+    BASE_HEADERS
 )
 from utils import (
     calculate_extra_cost,
@@ -60,7 +62,8 @@ with col_pdf:
         use_container_width=True,
     )
 
-tab1, tab2, tab3 = st.tabs(["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads"])
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads", "⚙️ Einstellungen"])
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -240,3 +243,47 @@ with tab3:
             with cols[i % 4]:
                 st.image(url)
                 st.caption(f"{name} · #{pos}")
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 4 - SETTINGS
+# ═══════════════════════════════════════════════════════════════════
+with tab4:
+    st.markdown("### Preise & Einstellungen")
+
+    from config import load_config, CONFIG_URL
+    cfg = load_config()
+
+    with st.form("config_form"):
+        new_max = st.number_input(
+            "Max. Bilder pro Bestellung", value=cfg["MAX_IMAGES"], step=1)
+        new_price = st.number_input(
+            "Preis pro Bild (€)", value=cfg["NORMAL_IMAGE_PRICE"], step=0.01, format="%.2f")
+        # new_kasse = st.number_input("Preis den die Abikasse zahlt (€)",
+        #                             value=cfg["NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS"], step=0.01, format="%.2f")
+        new_upload = st.number_input(
+            "Preis eigene Fotos (€)", value=cfg["UPLOAD_PHOTO_PRICE"], step=0.01, format="%.2f")
+        new_free = st.number_input(
+            "Anzahl gratis Bilder", value=cfg["AMOUNT_OF_FREE_IMAGES"], step=1)
+
+        if st.form_submit_button("💾 Speichern"):
+            updates = {
+                "MAX_IMAGES": str(new_max),
+                "NORMAL_IMAGE_PRICE": str(new_price),
+                # No update for this one
+                "NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS": cfg["NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS"],
+                "UPLOAD_PHOTO_PRICE": str(new_upload),
+                "AMOUNT_OF_FREE_IMAGES": str(new_free),
+            }
+            success = True
+            for key, value in updates.items():
+                resp = requests.patch(
+                    f"{CONFIG_URL}?key=eq.{key}",
+                    json={"value": value},
+                    headers={**BASE_HEADERS, "Prefer": "return=minimal"}
+                )
+                if resp.status_code not in [200, 201, 204]:
+                    st.error(f"❌ Fehler beim Speichern von {key}")
+                    success = False
+            if success:
+                st.cache_data.clear()
+                st.success("✅ Einstellungen gespeichert!")

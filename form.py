@@ -147,11 +147,34 @@ if extra_cost > 0:
 else:
     st.success("✅ Alle Bilder sind gratis!")
 
+
 # ── SUBMIT ────────────────────────────────────────────────────────────────────
 if st.button("Absenden", type="primary"):
     if not name:
         st.error("Bitte Namen eingeben.")
         st.stop()
+    if extra_cost > 0:
+        st.session_state["pending_order"] = True
+    else:
+        st.session_state["pending_order"] = False
+        st.session_state["confirmed"] = True
+
+if st.session_state.get("pending_order") and not st.session_state.get("confirmed"):
+    st.warning(
+        f"⚠️ Du musst **{extra_cost:.2f}€** bezahlen. "
+        f"Deine Fotos werden nur gedruckt, wenn du bezahlt hast. "
+    )
+    st.info(f"PayPal an: l-blu@outlook.de oder gib Levi das Geld persönlich.")
+    if st.button("✅ Bestätigen", type="primary"):
+        st.session_state["confirmed"] = True
+        st.rerun()
+    if st.button("❌ Abbrechen"):
+        st.session_state["pending_order"] = False
+        st.rerun()
+
+if st.session_state.get("confirmed"):
+    st.session_state["pending_order"] = False
+    st.session_state["confirmed"] = False
 
     # 1. Insert order, get back the new row's id
     order_data = {
@@ -178,7 +201,7 @@ if st.button("Absenden", type="primary"):
         st.error(f"❌ Bestellung fehlgeschlagen: {order_response.text}")
         st.stop()
 
-    order_id = order_response.json()[0]["id"]  # uuid of the new order
+    order_id = order_response.json()[0]["id"]
 
     # 2. Upload each image and insert a row into order_images
     if uploaded_files:
