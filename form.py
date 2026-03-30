@@ -6,7 +6,8 @@ from constants import (
     LK_OPTIONS,
     GK_OPTIONS,
     MOTTO_LABELS,
-    PREVIEW_IMAGES
+    PREVIEW_IMAGES,
+    STUFEN_LABELS
 )
 from config import (
     MAX_IMAGES,
@@ -56,18 +57,24 @@ if st.checkbox("Spaßbild", key="gk_spass"):
 # Mottowoche
 st.subheader("Mottowoche")
 
-for label in MOTTO_LABELS.values():
-    st.checkbox(label, key=f"{label}_checkbox")
-selected_mottos = [v for l, v in MOTTO_LABELS.items(
-) if st.session_state.get(f"{v}_checkbox")]
+for k, label in MOTTO_LABELS.items():
+    st.checkbox(label, key=f"{k}_motto_checkbox")
+
+selected_mottos = [
+    k for k in MOTTO_LABELS
+    if st.session_state.get(f"{k}_motto_checkbox")
+]
 
 # Stufenfotos
 st.subheader(f"Stufenfotos")
-stufen_options = {"Pausenhof": 1, "Abau Treppe": 2}
-for label in stufen_options:
-    st.checkbox(label, key=f"{label}_checkbox")
-selected_stufen = [v for l, v in stufen_options.items(
-) if st.session_state.get(f"{l}_checkbox")]
+for k, label in STUFEN_LABELS.items():
+    st.checkbox(label, key=f"{k}_stufen_checkbox")
+
+selected_stufen = [
+    k for k in STUFEN_LABELS
+    if st.session_state.get(f"{k}_stufen_checkbox")
+]
+
 
 # ── IMAGE UPLOAD ───────────────────────────────────────────────────────────────
 st.subheader(
@@ -84,16 +91,6 @@ if uploaded_files and len(uploaded_files) > MAX_IMAGES:
     st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
 amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
 
-# Cost calculation
-num_images = len(lk_tpy) + len(gk_tpy) + \
-    len(selected_mottos) + len(selected_stufen)
-extra_cost = 0.0
-if num_images > AMOUNT_OF_FREE_IMAGES:
-    extra_cost = (num_images - AMOUNT_OF_FREE_IMAGES) * NORMAL_IMAGE_PRICE
-extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
-covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
-covered_cost = covered_images * NORMAL_IMAGE_PRICE
-
 # Overview
 st.divider()
 bestellung = []
@@ -106,7 +103,6 @@ with st.expander("Überblick deiner Bestellung"):
             st.image(
                 img_url,
                 caption=f"{lk_choice} - {t}",
-                use_container_width=True
             )
     for t in gk_tpy:
         img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
@@ -114,29 +110,24 @@ with st.expander("Überblick deiner Bestellung"):
             st.image(
                 img_url,
                 caption=f"{gk_choice} - {t}",
-                use_container_width=True
             )
 
     # Mottowoche
-    motto_label_map = {v: k for k, v in MOTTO_LABELS.items()}
     for m in selected_mottos:
         img_url = PREVIEW_IMAGES["mottowoche"].get(m)
         if img_url:
             st.image(
                 img_url,
-                caption=f"Mottowoche - {motto_label_map.get(m, m)}",
-                use_container_width=True
+                caption=f"Mottowoche - {MOTTO_LABELS.get(m, m)}",
             )
 
     # Stufenfotos
-    stufen_label_map = {v: k for k, v in stufen_options.items()}
     for s in selected_stufen:
         img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
         if img_url:
             st.image(
                 img_url,
-                caption=f"Stufenfoto - {stufen_label_map.get(s, s)}",
-                use_container_width=True
+                caption=f"Stufenfoto - {STUFEN_LABELS.get(s, s)}",
             )
 
     for item in bestellung:
@@ -148,9 +139,18 @@ with st.expander("Überblick deiner Bestellung"):
             st.image(
                 image,
                 caption=f"Eigenes Foto - {image.name}",
-                use_container_width=True
             )
 
+# Cost calculation
+num_images = len(lk_tpy) + len(gk_tpy) + \
+    len(selected_mottos) + len(selected_stufen)
+extra_cost = 0.0
+if num_images > AMOUNT_OF_FREE_IMAGES:
+    extra_cost = (num_images - AMOUNT_OF_FREE_IMAGES) * NORMAL_IMAGE_PRICE
+extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
+covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
+covered_cost = covered_images * NORMAL_IMAGE_PRICE
+print(f"num_images: {num_images}, covered_images: {covered_images}, covered_cost: {covered_cost:.2f}, extra_cost: {extra_cost:.2f}")
 if extra_cost > 0:
     st.warning(
         f"⚠️ Zusatzkosten: **{extra_cost:.2f}€** - {num_images} Bilder ausgewählt, {covered_images} gratis")
