@@ -10,11 +10,16 @@ import streamlit as st
 from constants import (
     SUPABASE_URL,
     SUPABASE_KEY,
-    BUCKET_NAME
+    BUCKET_NAME,
 )
 import requests
 import zipfile
 import io
+from constants import (
+    ORDERS_URL,
+    IMAGES_URL,
+    BASE_HEADERS
+)
 
 
 def update_payment(order_id, paid: bool, ORDERS_URL, BASE_HEADERS):
@@ -166,3 +171,22 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
     else:
         st.error(f"❌ Bild-Upload fehlgeschlagen ({filename}): {response.text}")
         return None
+
+
+# ── DATA FETCH ────────────────────────────────────────────────────────────────
+def fetch_orders():
+    resp = requests.get(
+        ORDERS_URL,
+        headers=BASE_HEADERS,
+        params={"select": "*", "order": "created_at.asc"}
+    )
+    return resp.json() if resp.status_code == 200 else []
+
+
+def fetch_images():
+    resp = requests.get(
+        IMAGES_URL,
+        headers=BASE_HEADERS,
+        params={"select": "*", "order": "order_id,position.asc"}
+    )
+    return resp.json() if resp.status_code == 200 else []

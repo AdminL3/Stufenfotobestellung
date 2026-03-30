@@ -11,8 +11,8 @@ from constants import (
 from config import (
     MAX_IMAGES,
     NORMAL_IMAGE_PRICE,
-    STUFENFOTO_PRICE,
-    EXTRA_PHOTO_PRICE
+    UPLOAD_PHOTO_PRICE,
+    AMOUNT_OF_FREE_IMAGES
 )
 
 from constants import (
@@ -27,8 +27,9 @@ from utils import (
 st.set_page_config(page_title="Fotobestellung")
 st.title("📸 Fotobestellung")
 st.write(
-    f"3 Bilder sind inklusive. Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€. Größere Stufenfotos kosten {STUFENFOTO_PRICE:.2f}€. Eigene Fotos kosten {EXTRA_PHOTO_PRICE:.2f}€.")
+    f"{AMOUNT_OF_FREE_IMAGES} Bilder sind gratis. Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€. Eigene Fotos kosten {UPLOAD_PHOTO_PRICE:.2f}€.")
 
+st.write(f"12,7 x 17,8cm - matt")
 # Name
 name = st.text_input("Name")
 
@@ -57,12 +58,11 @@ st.subheader("Mottowoche")
 
 for label in MOTTO_LABELS.values():
     st.checkbox(label, key=f"{label}_checkbox")
-selected_mottos = [v for l, v in MOTTO_LABELS.items()
-                   if st.session_state.get(f"{l}_checkbox")]
+selected_mottos = [v for l, v in MOTTO_LABELS.items(
+) if st.session_state.get(f"{v}_checkbox")]
 
 # Stufenfotos
-st.subheader(f"Stufenfotos ({STUFENFOTO_PRICE:.2f}€)")
-st.write(f"{STUFENFOTO_PRICE:.2f}€ pro Bild - 12,7 x 17,8cm - matt")
+st.subheader(f"Stufenfotos")
 stufen_options = {"Pausenhof": 1, "Abau Treppe": 2}
 for label in stufen_options:
     st.checkbox(label, key=f"{label}_checkbox")
@@ -71,8 +71,8 @@ selected_stufen = [v for l, v in stufen_options.items(
 
 # ── IMAGE UPLOAD ───────────────────────────────────────────────────────────────
 st.subheader(
-    f"Eigene Fotos hochladen")
-st.write(f"{EXTRA_PHOTO_PRICE:.2f}€ pro Bild - 10,2 x 15,2cm - matt")
+    f"Eigene Fotos hochladen zum drucken (optional)")
+st.write(f"{UPLOAD_PHOTO_PRICE:.2f}€ pro Bild")
 uploaded_files = st.file_uploader(
     "Fotos auswählen",
     type=["jpg", "jpeg", "png", "webp"],
@@ -82,18 +82,17 @@ uploaded_files = st.file_uploader(
 if uploaded_files and len(uploaded_files) > MAX_IMAGES:
     uploaded_files = uploaded_files[:MAX_IMAGES]
     st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
-anzahl_eigener_fotos = len(uploaded_files) if uploaded_files else 0
+amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
 
 # Cost calculation
-num_images = len(lk_tpy) + len(gk_tpy) + len(selected_mottos)
+num_images = len(lk_tpy) + len(gk_tpy) + \
+    len(selected_mottos) + len(selected_stufen)
 extra_cost = 0.0
-if num_images > 3:
-    extra_cost = (num_images - 3) * NORMAL_IMAGE_PRICE
-for _ in selected_stufen:
-    extra_cost += STUFENFOTO_PRICE
-# Commented out as extra_photos_count is no longer used
-extra_cost += anzahl_eigener_fotos * EXTRA_PHOTO_PRICE
-
+if num_images > AMOUNT_OF_FREE_IMAGES:
+    extra_cost = (num_images - AMOUNT_OF_FREE_IMAGES) * NORMAL_IMAGE_PRICE
+extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
+covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
+covered_cost = covered_images * NORMAL_IMAGE_PRICE
 
 # Overview
 st.divider()
@@ -153,9 +152,10 @@ with st.expander("Überblick deiner Bestellung"):
             )
 
 if extra_cost > 0:
-    st.warning(f"⚠️ Zusatzkosten: **{extra_cost:.2f}€**")
+    st.warning(
+        f"⚠️ Zusatzkosten: **{extra_cost:.2f}€** - {num_images} Bilder ausgewählt, {covered_images} gratis")
 else:
-    st.success("✅ Keine Zusatzkosten - alles inklusive!")
+    st.success("✅ Alle Bilder sind gratis!")
 
 # ── SUBMIT ────────────────────────────────────────────────────────────────────
 if st.button("Absenden", type="primary"):
@@ -163,7 +163,7 @@ if st.button("Absenden", type="primary"):
         st.error("Bitte Namen eingeben.")
         st.stop()
 
-    if uploaded_files and anzahl_eigener_fotos > MAX_IMAGES:
+    if uploaded_files and amount_uploaded_fotos > MAX_IMAGES:
         st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
         st.stop()
 
@@ -176,8 +176,7 @@ if st.button("Absenden", type="primary"):
         "gk_tpy": gk_tpy,
         "mottowoche": selected_mottos,
         "stufenfotos": selected_stufen,
-        "extra_photos": anzahl_eigener_fotos,
-        "image_count": num_images,
+        "extra_photos": amount_uploaded_fotos,
         "paid": extra_cost == 0,
         "created_at": datetime.now().isoformat(),
     }
