@@ -150,7 +150,7 @@ if num_images > AMOUNT_OF_FREE_IMAGES:
 extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
 covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
 covered_cost = covered_images * NORMAL_IMAGE_PRICE
-print(f"num_images: {num_images}, covered_images: {covered_images}, covered_cost: {covered_cost:.2f}, extra_cost: {extra_cost:.2f}")
+
 if extra_cost > 0:
     st.warning(
         f"⚠️ Zusatzkosten: **{extra_cost:.2f}€** - {num_images} Bilder ausgewählt, {covered_images} gratis")
