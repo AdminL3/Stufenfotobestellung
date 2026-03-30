@@ -11,6 +11,8 @@ from constants import (
     SUPABASE_URL,
     SUPABASE_KEY,
     BUCKET_NAME,
+    MOTTO_LABELS,
+    STUFEN_LABELS
 )
 import requests
 import zipfile
@@ -38,28 +40,49 @@ def build_image_map(images):
     return img_map
 
 
-def build_picture_map(orders, MOTTO_LABELS, STUFEN_LABELS):
+def build_picture_map(orders):
     picture_map = defaultdict(list)
     for o in orders:
         name = o.get("name", "?")
-        is_paid = o.get("paid", False) or (o.get("extra_cost") or 0) == 0
-        lk = o.get("leistungskurs", "")
-        gk = o.get("grundkurs", "")
+        is_paid = o.get("paid", False)
+
+        lk = o.get("leistungskurs")
+        gk = o.get("grundkurs")
         for t in (o.get("lk_typ") or []):
-            picture_map[f"{lk} - {t}"].append((name, is_paid))
+            picture_map[("lk", lk, t)].append((name, is_paid))
         for t in (o.get("gk_tpy") or []):
-            picture_map[f"{gk} - {t}"].append((name, is_paid))
+            picture_map[("gk", gk, t)].append((name, is_paid))
         for m in (o.get("mottowoche") or []):
-            picture_map[f"Mottowoche: {MOTTO_LABELS.get(m, f'Motto {m}')}"].append(
-                (name, is_paid))
+            picture_map[("motto", int(m))].append((name, is_paid))
         for s in (o.get("stufenfotos") or []):
-            picture_map[f"Stufenfoto: {STUFEN_LABELS.get(s, f'Stufen {s}')}"].append(
-                (name, is_paid))
+            picture_map[("stufe", int(s))].append((name, is_paid))
         extra_photos = o.get("extra_photos", 0) or 0
         if extra_photos > 0:
-            picture_map["Zusatzfotos"].append(
-                (f"{name} (x{extra_photos})", is_paid))
+            picture_map[("extra",)].append(
+                (f"{name} (x{extra_photos})", is_paid)
+            )
     return picture_map
+
+
+def format_label(key):
+    if key[0] == "lk":
+        _, lk, t = key
+        return f"{lk} - {t}"
+
+    elif key[0] == "gk":
+        _, gk, t = key
+        return f"{gk} - {t}"
+
+    elif key[0] == "motto":
+        return f"{MOTTO_LABELS.get(key[1], key[1])}"
+
+    elif key[0] == "stufe":
+        return f"Stufenfoto: {STUFEN_LABELS.get(key[1], key[1])}"
+
+    elif key[0] == "extra":
+        return "Zusatzfotos"
+
+    return str(key)  # fallback
 
 
 # ── PDF EXPORT ────────────────────────────────────────────────────────────────

@@ -177,6 +177,7 @@ if st.button("Absenden", type="primary"):
         "mottowoche": selected_mottos,
         "stufenfotos": selected_stufen,
         "extra_photos": amount_uploaded_fotos,
+        "image_count": num_images,
         "paid": extra_cost == 0,
         "created_at": datetime.now().isoformat(),
     }

@@ -4,11 +4,11 @@ LK_OPTIONS = ["Englisch", "Geschichte", "Geo",
 GK_OPTIONS = ["Grundkurs 1", "Grundkurs 2", "Grundkurs 3", "Grundkurs 4"]
 
 MOTTO_LABELS = {
-    1: "Mo - Mafia",
-    2: "Di - Gender Swap",
-    3: "Mi - Kindheitshelden",
-    4: "Do - Straight out of Bed",
-    5: "Fr - Gruppenkostüm",
+    1: "Mafia",
+    2: "Gender Swap",
+    3: "Kindheitshelden",
+    4: "Straight out of Bed",
+    5: "Gruppenkostüm",
 }
 
 STUFEN_LABELS = {

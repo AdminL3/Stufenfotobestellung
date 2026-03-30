@@ -1,5 +1,4 @@
 import streamlit as st
-import requests
 from config import (
     NORMAL_IMAGE_PRICE,
     NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS,
@@ -17,6 +16,7 @@ from constants import (
     BASE_HEADERS,
 )
 from utils import (
+    format_label,
     update_payment,
     build_image_map,
     build_picture_map,
@@ -40,8 +40,7 @@ images = st.session_state["images"]
 
 # Add these:
 image_map = build_image_map(images)
-picture_map = build_picture_map(orders, MOTTO_LABELS, STUFEN_LABELS)
-
+picture_map = build_picture_map(orders)
 
 # ═══════════════════════════════════════════════════════════════════
 # HEADER
@@ -76,12 +75,18 @@ with tab1:
     if not picture_map:
         st.info("Noch keine Bestellungen vorhanden.")
     else:
-        for label, entries in sorted(picture_map.items(), key=lambda x: -len(x[1])):
-            with st.expander(f"{label} - {len(entries)} Bestellungen"):
-                html = '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center;">'
-                for n, paid in entries:
-                    html += f'<span style="{TAG_PAID if paid else TAG_UNPAID}">{n}</span>'
-                html += '</div>'
+        for key, entries in picture_map.items():
+            title = f"{format_label(key)} - {len(entries)} Bestellungen"
+            with st.expander(title):
+                tags = [
+                    f'<span style="{TAG_PAID if paid else TAG_UNPAID}">{name}</span>'
+                    for name, paid in entries
+                ]
+                html = (
+                    '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
+                    + "".join(tags) +
+                    "</div>"
+                )
                 st.markdown(html, unsafe_allow_html=True)
 
 
@@ -96,13 +101,12 @@ with tab2:
 
     for order in orders:
         extra_cost = 0.0
-        num_images = order.get("image_count", 0) or 0
-        amount_uploaded_fotos = order.get("extra_photos", 0) or 0
+        num_images = order.get("image_count")
+        amount_uploaded_fotos = order.get("extra_photos")
         if num_images > AMOUNT_OF_FREE_IMAGES:
-            extra_cost = (num_images - AMOUNT_OF_FREE_IMAGES) * \
+            extra_cost += (num_images - AMOUNT_OF_FREE_IMAGES) * \
                 NORMAL_IMAGE_PRICE
         extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
-        num_images = order.get("image_count", 0) or 0
         is_paid = order.get("paid", False)
 
         if is_paid:
@@ -112,9 +116,7 @@ with tab2:
             total_unpaid_orders += 1
 
         covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
-        print(order["id"], covered_images)
         total_covered_payments += covered_images * NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS
-        print(total_covered_payments)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Bezahlt / Gratis", total_paid_orders)
@@ -148,10 +150,10 @@ with tab2:
 
     for o in filtered_orders:
         extra_cost = 0.0
-        num_images = o.get("image_count", 0) or 0
-        amount_uploaded_fotos = o.get("extra_photos", 0) or 0
+        num_images = o.get("image_count")
+        amount_uploaded_fotos = o.get("extra_photos")
         if num_images > AMOUNT_OF_FREE_IMAGES:
-            extra_cost = (num_images - AMOUNT_OF_FREE_IMAGES) * \
+            extra_cost += (num_images - AMOUNT_OF_FREE_IMAGES) * \
                 NORMAL_IMAGE_PRICE
         extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
         is_free = extra_cost == 0
@@ -161,7 +163,6 @@ with tab2:
 
         lk_typ = o.get("lk_typ") or []
         gk_tpy = o.get("gk_tpy") or []
-        extra_photos = o.get("extra_photos", 0) or 0
 
         badge = (
             '<span class="free-badge">GRATIS</span>' if is_free else
@@ -190,8 +191,8 @@ with tab2:
             if stufen:
                 st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
 
-            if extra_photos > 0:
-                st.write(f"**Eigene Fotos:** {extra_photos}x")
+            if amount_uploaded_fotos > 0:
+                st.write(f"**Eigene Fotos:** {amount_uploaded_fotos}x")
 
             order_imgs = image_map.get(order_id, [])
             if order_imgs:
