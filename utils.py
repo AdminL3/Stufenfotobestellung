@@ -12,19 +12,22 @@ from constants import (
     SUPABASE_KEY,
     BUCKET_NAME,
     MOTTO_LABELS,
-    STUFEN_LABELS
-)
-import requests
-import zipfile
-import io
-from constants import (
+    STUFEN_LABELS,
     ORDERS_URL,
     IMAGES_URL,
     BASE_HEADERS
 )
+from config import (
+    NORMAL_IMAGE_PRICE,
+    UPLOAD_PHOTO_PRICE,
+    AMOUNT_OF_FREE_IMAGES
+)
+import requests
+import zipfile
+import io
 
 
-def update_payment(order_id, paid: bool, ORDERS_URL, BASE_HEADERS):
+def update_payment(order_id, paid: bool):
     resp = requests.patch(
         f"{ORDERS_URL}?id=eq.{order_id}",
         json={"paid": paid},
@@ -85,6 +88,17 @@ def format_label(key):
     return str(key)  # fallback
 
 
+def calculate_extra_cost(num_images=0, extra_photos=0, order=None):
+    if order is not None:
+        num_images = order.get("image_count") or 0
+        extra_photos = order.get("extra_photos") or 0
+    cost = 0.0
+    if num_images > AMOUNT_OF_FREE_IMAGES:
+        cost += (num_images - AMOUNT_OF_FREE_IMAGES) * NORMAL_IMAGE_PRICE
+    cost += extra_photos * UPLOAD_PHOTO_PRICE
+    return cost
+
+
 # ── PDF EXPORT ────────────────────────────────────────────────────────────────
 def generate_pdf(picture_map):
     buffer = io.BytesIO()
@@ -120,8 +134,8 @@ def generate_pdf(picture_map):
     sorted_pics = sorted(picture_map.items(), key=lambda x: -len(x[1]))
 
     for label, entries in sorted_pics:
-        story.append(
-            Paragraph(f"{label}  -  {len(entries)} Bestellungen", heading_style))
+        story.append(Paragraph(
+            f"{format_label(label)}  -  {len(entries)} Bestellungen", heading_style))
 
         paid_names = [n for n, paid in entries if paid]
         unpaid_names = [n for n, paid in entries if not paid]

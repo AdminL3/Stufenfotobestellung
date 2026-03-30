@@ -7,7 +7,8 @@ from constants import (
     GK_OPTIONS,
     MOTTO_LABELS,
     PREVIEW_IMAGES,
-    STUFEN_LABELS
+    STUFEN_LABELS,
+    SUPABASE_URL
 )
 from config import (
     MAX_IMAGES,
@@ -15,13 +16,9 @@ from config import (
     UPLOAD_PHOTO_PRICE,
     AMOUNT_OF_FREE_IMAGES
 )
-
-from constants import (
-    SUPABASE_URL
-)
-
 from utils import (
-    upload_image_to_supabase
+    upload_image_to_supabase,
+    calculate_extra_cost
 )
 
 
@@ -93,9 +90,8 @@ amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
 
 # Overview
 st.divider()
-bestellung = []
-with st.expander("Überblick deiner Bestellung"):
 
+with st.expander("Überblick deiner Bestellung"):
     # Kursfotos
     for t in lk_tpy:
         img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
@@ -130,9 +126,6 @@ with st.expander("Überblick deiner Bestellung"):
                 caption=f"Stufenfoto - {STUFEN_LABELS.get(s, s)}",
             )
 
-    for item in bestellung:
-        st.write(item)
-
     # Uploaded images
     if uploaded_files:
         for image in uploaded_files:
@@ -144,12 +137,9 @@ with st.expander("Überblick deiner Bestellung"):
 # Cost calculation
 num_images = len(lk_tpy) + len(gk_tpy) + \
     len(selected_mottos) + len(selected_stufen)
-extra_cost = 0.0
-if num_images > AMOUNT_OF_FREE_IMAGES:
-    extra_cost = (num_images - AMOUNT_OF_FREE_IMAGES) * NORMAL_IMAGE_PRICE
-extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
+extra_cost = calculate_extra_cost(
+    num_images=num_images, extra_photos=amount_uploaded_fotos)
 covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
-covered_cost = covered_images * NORMAL_IMAGE_PRICE
 
 if extra_cost > 0:
     st.warning(
@@ -161,10 +151,6 @@ else:
 if st.button("Absenden", type="primary"):
     if not name:
         st.error("Bitte Namen eingeben.")
-        st.stop()
-
-    if uploaded_files and amount_uploaded_fotos > MAX_IMAGES:
-        st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
         st.stop()
 
     # 1. Insert order, get back the new row's id

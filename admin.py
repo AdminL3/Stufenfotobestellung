@@ -1,8 +1,6 @@
 import streamlit as st
 from config import (
-    NORMAL_IMAGE_PRICE,
     NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS,
-    UPLOAD_PHOTO_PRICE,
     AMOUNT_OF_FREE_IMAGES
 )
 from constants import (
@@ -10,12 +8,10 @@ from constants import (
     STUFEN_LABELS,
     BADGE_CSS,
     TAG_PAID,
-    TAG_UNPAID,
-    ORDERS_URL,
-    IMAGES_URL,
-    BASE_HEADERS,
+    TAG_UNPAID
 )
 from utils import (
+    calculate_extra_cost,
     format_label,
     update_payment,
     build_image_map,
@@ -54,7 +50,6 @@ with col_refresh:
     if st.button("🔄 Daten aktualisieren"):
         st.session_state["orders"] = fetch_orders()
         st.session_state["images"] = fetch_images()
-        st.session_state.pop("auto_patched", None)
         st.rerun()
 with col_pdf:
     st.download_button(
@@ -100,13 +95,7 @@ with tab2:
     total_covered_payments = 0.0
 
     for order in orders:
-        extra_cost = 0.0
-        num_images = order.get("image_count")
-        amount_uploaded_fotos = order.get("extra_photos")
-        if num_images > AMOUNT_OF_FREE_IMAGES:
-            extra_cost += (num_images - AMOUNT_OF_FREE_IMAGES) * \
-                NORMAL_IMAGE_PRICE
-        extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
+        extra_cost = calculate_extra_cost(order=order)
         is_paid = order.get("paid", False)
 
         if is_paid:
@@ -115,6 +104,7 @@ with tab2:
             total_outstanding += extra_cost
             total_unpaid_orders += 1
 
+        num_images = order.get("image_count") or 0
         covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
         total_covered_payments += covered_images * NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS
 
@@ -135,34 +125,28 @@ with tab2:
             "🔍 Name suchen", placeholder="Max Mustermann")
 
     filtered_orders = []
-    for o in orders:
-        is_paid = o.get("paid", False)
+    for order in orders:
+        is_paid = order.get("paid", False)
         if show_filter == "Nur Ausstehende" and is_paid:
             continue
         if show_filter == "Nur Bezahlte" and not is_paid:
             continue
-        if search_query and search_query.lower() not in o.get("name", "").lower():
+        if search_query and search_query.lower() not in order.get("name", "").lower():
             continue
-        filtered_orders.append(o)
+        filtered_orders.append(order)
 
     if search_query and not filtered_orders:
         st.warning(f"Keine Bestellung für '{search_query}' gefunden.")
 
-    for o in filtered_orders:
-        extra_cost = 0.0
-        num_images = o.get("image_count")
-        amount_uploaded_fotos = o.get("extra_photos")
-        if num_images > AMOUNT_OF_FREE_IMAGES:
-            extra_cost += (num_images - AMOUNT_OF_FREE_IMAGES) * \
-                NORMAL_IMAGE_PRICE
-        extra_cost += amount_uploaded_fotos * UPLOAD_PHOTO_PRICE
+    for order in filtered_orders:
+        extra_cost = calculate_extra_cost(order=order)
         is_free = extra_cost == 0
-        is_paid = o.get("paid", False)
-        order_id = o["id"]
-        name = o.get("name", "?")
+        is_paid = order.get("paid", False)
+        order_id = order["id"]
+        name = order.get("name", "?")
 
-        lk_typ = o.get("lk_typ") or []
-        gk_tpy = o.get("gk_tpy") or []
+        lk_typ = order.get("lk_typ") or []
+        gk_tpy = order.get("gk_tpy") or []
 
         badge = (
             '<span class="free-badge">GRATIS</span>' if is_free else
@@ -175,22 +159,23 @@ with tab2:
             st.markdown(badge, unsafe_allow_html=True)
 
             kurs_pics = (
-                [f"{o.get('leistungskurs', '')} {t}" for t in lk_typ] +
-                [f"{o.get('grundkurs', '')} {t}" for t in gk_tpy]
+                [f"{order.get('leistungskurs', '')} {t}" for t in lk_typ] +
+                [f"{order.get('grundkurs', '')} {t}" for t in gk_tpy]
             )
             if kurs_pics:
                 st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))
 
             mottos = [MOTTO_LABELS.get(m, f"Motto {m}") for m in (
-                o.get("mottowoche") or [])]
+                order.get("mottowoche") or [])]
             if mottos:
                 st.write("**Mottowoche:** " + "  ·  ".join(mottos))
 
             stufen = [STUFEN_LABELS.get(s, f"Stufen {s}") for s in (
-                o.get("stufenfotos") or [])]
+                order.get("stufenfotos") or [])]
             if stufen:
                 st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
 
+            amount_uploaded_fotos = order.get("extra_photos") or 0
             if amount_uploaded_fotos > 0:
                 st.write(f"**Eigene Fotos:** {amount_uploaded_fotos}x")
 
@@ -204,15 +189,14 @@ with tab2:
             if not is_free:
                 if is_paid:
                     if st.button("Als unbezahlt markieren", key=f"unpay_{order_id}"):
-                        update_payment(order_id, False,
-                                       ORDERS_URL, BASE_HEADERS)
+                        update_payment(order_id, False)
                         st.session_state["orders"] = fetch_orders()
                         st.session_state["images"] = fetch_images()
                         st.rerun()
                 else:
                     if st.button(f"✅ Als bezahlt markieren ({extra_cost:.2f}€)", key=f"pay_{order_id}"):
                         update_payment(
-                            order_id, True, ORDERS_URL, BASE_HEADERS)
+                            order_id, True)
                         st.session_state["orders"] = fetch_orders()
                         st.session_state["images"] = fetch_images()
                         st.rerun()
@@ -224,7 +208,7 @@ with tab2:
 with tab3:
     st.markdown("### Alle hochgeladenen Fotos")
 
-    order_lookup = {o["id"]: o.get("name", "?") for o in orders}
+    order_lookup = {order["id"]: order.get("name", "?") for order in orders}
     all_uploads = [
         (img["url"], order_lookup.get(img["order_id"], "?"),
          img.get("position", 0), img["order_id"])
