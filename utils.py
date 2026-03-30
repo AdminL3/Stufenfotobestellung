@@ -131,9 +131,7 @@ def generate_pdf(picture_map):
     story.append(HRFlowable(width="100%", thickness=1,
                  color=colors.HexColor("#dddddd"), spaceAfter=16))
 
-    sorted_pics = sorted(picture_map.items(), key=lambda x: -len(x[1]))
-
-    for label, entries in sorted_pics:
+    for label, entries in picture_map.items():
         story.append(Paragraph(
             f"{format_label(label)}  -  {len(entries)} Bestellungen", heading_style))
 
