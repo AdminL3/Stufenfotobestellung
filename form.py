@@ -41,6 +41,15 @@ if st.checkbox("Normalbild", key="lk_normal"):
 if st.checkbox("Spaßbild", key="lk_spass"):
     lk_tpy.append("Spaßbild")
 
+# LK Preview
+if lk_tpy:
+    cols = st.columns(2)
+    for idx, t in enumerate(lk_tpy):
+        img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
+        if img_url:
+            with cols[idx]:
+                st.image(img_url, caption=t)
+
 # Grundkurs
 st.subheader("Grundkurs Foto")
 gk_choice = st.radio("Grundkurs auswählen", GK_OPTIONS)
@@ -50,6 +59,15 @@ if st.checkbox("Normalbild", key="gk_normal"):
     gk_tpy.append("Normalbild")
 if st.checkbox("Spaßbild", key="gk_spass"):
     gk_tpy.append("Spaßbild")
+
+# GK Preview
+if gk_tpy:
+    cols = st.columns(2)
+    for idx, t in enumerate(gk_tpy):
+        img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
+        if img_url:
+            with cols[idx]:
+                st.image(img_url, caption=t)
 
 # Mottowoche
 st.subheader("Mottowoche")
@@ -62,6 +80,16 @@ selected_mottos = [
     if st.session_state.get(f"{k}_motto_checkbox")
 ]
 
+# Mottowoche Preview
+if selected_mottos:
+    cols = st.columns(2)
+    for idx, m in enumerate(selected_mottos):
+        img_url = PREVIEW_IMAGES["mottowoche"].get(m)
+        if img_url:
+            with cols[idx % 2]:
+                st.image(img_url, caption=MOTTO_LABELS.get(
+                    m, str(m)))
+
 # Stufenfotos
 st.subheader(f"Stufenfotos")
 for k, label in STUFEN_LABELS.items():
@@ -71,6 +99,16 @@ selected_stufen = [
     k for k in STUFEN_LABELS
     if st.session_state.get(f"{k}_stufen_checkbox")
 ]
+
+# Stufenfotos Preview
+if selected_stufen:
+    cols = st.columns(2)
+    for idx, s in enumerate(selected_stufen):
+        img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
+        if img_url:
+            with cols[idx % 3]:
+                st.image(img_url, caption=STUFEN_LABELS.get(
+                    s, str(s)))
 
 
 # ── IMAGE UPLOAD ───────────────────────────────────────────────────────────────
@@ -88,51 +126,17 @@ if uploaded_files and len(uploaded_files) > MAX_IMAGES:
     st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
 amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
 
-# Overview
-st.divider()
+# ── IMAGE PREVIEW ──────────────────────────────────────────────────────────────
+if uploaded_files:
+    with st.expander("📸 Vorschau der hochgeladenen Fotos"):
+        cols = st.columns(2)
+        for idx, image in enumerate(uploaded_files):
+            with cols[idx % 3]:
+                st.image(
+                    image,
+                    caption=image.name,
+                )
 
-with st.expander("Überblick deiner Bestellung"):
-    # Kursfotos
-    for t in lk_tpy:
-        img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
-        if img_url:
-            st.image(
-                img_url,
-                caption=f"{lk_choice} - {t}",
-            )
-    for t in gk_tpy:
-        img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
-        if img_url:
-            st.image(
-                img_url,
-                caption=f"{gk_choice} - {t}",
-            )
-
-    # Mottowoche
-    for m in selected_mottos:
-        img_url = PREVIEW_IMAGES["mottowoche"].get(m)
-        if img_url:
-            st.image(
-                img_url,
-                caption=f"Mottowoche - {MOTTO_LABELS.get(m, m)}",
-            )
-
-    # Stufenfotos
-    for s in selected_stufen:
-        img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
-        if img_url:
-            st.image(
-                img_url,
-                caption=f"Stufenfoto - {STUFEN_LABELS.get(s, s)}",
-            )
-
-    # Uploaded images
-    if uploaded_files:
-        for image in uploaded_files:
-            st.image(
-                image,
-                caption=f"Eigenes Foto - {image.name}",
-            )
 
 # Cost calculation
 num_images = len(lk_tpy) + len(gk_tpy) + \
