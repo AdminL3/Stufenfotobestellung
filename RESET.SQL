@@ -32,7 +32,9 @@ CREATE TABLE orders (
     stufenfotos       int[],
     extra_photos      int DEFAULT 0,
     image_count       int DEFAULT 0,
-    paid              boolean DEFAULT false
+    extra_cost        numeric(6,2) DEFAULT 0,
+    paid              boolean DEFAULT false,
+    archived          boolean DEFAULT false
 );
 
 ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
@@ -49,7 +51,28 @@ CREATE TABLE order_images (
 
 ALTER TABLE order_images DISABLE ROW LEVEL SECURITY;
 
+-- ── CONFIG TABLE ──────────────────────────────────────────────────────────────
+CREATE TABLE config (
+    key    text PRIMARY KEY,
+    value  text NOT NULL
+);
+
+ALTER TABLE config DISABLE ROW LEVEL SECURITY;
+
+INSERT INTO config (key, value) VALUES
+    ('MAX_IMAGES',                          '20'),
+    ('NORMAL_IMAGE_PRICE',                  '0.25'),
+    ('UPLOAD_PHOTO_PRICE',                  '0.49'),
+    ('AMOUNT_OF_FREE_IMAGES',               '2'),
+    ('PRINTING_COST',                       '0.14')
+ON CONFLICT (key) DO NOTHING;
+
 -- ── GRANTS ────────────────────────────────────────────────────────────────────
 GRANT USAGE ON SCHEMA public TO anon;
 GRANT INSERT, SELECT ON TABLE orders TO anon;
 GRANT INSERT, SELECT ON TABLE order_images TO anon;
+GRANT SELECT ON TABLE config TO anon;
+
+-- Admin needs UPDATE for payments, archiving, and config changes
+GRANT UPDATE ON TABLE orders TO anon;
+GRANT UPDATE ON TABLE config TO anon;

@@ -3,7 +3,8 @@ import requests
 from config import (
     NORMAL_IMAGE_PRICE,
     AMOUNT_OF_FREE_IMAGES,
-    UPLOAD_PHOTO_PRICE
+    UPLOAD_PHOTO_PRICE,
+    PRINTING_COST
 )
 from constants import (
     MOTTO_LABELS,
@@ -17,12 +18,14 @@ from utils import (
     calculate_extra_cost,
     format_label,
     update_payment,
+    archive_order,
     build_image_map,
     build_picture_map,
     generate_pdf,
     create_zip_all,
     fetch_orders,
-    fetch_images
+    fetch_images,
+    fetch_archived_orders,
 )
 
 st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
@@ -30,14 +33,18 @@ st.markdown(BADGE_CSS, unsafe_allow_html=True)
 
 
 # ── LOAD DATA ─────────────────────────────────────────────────────────────────
-if "orders" not in st.session_state or "images" not in st.session_state:
+# ── LOAD DATA ─────────────────────────────────────────────────────────────────
+if "orders" not in st.session_state:
     st.session_state["orders"] = []
+if "images" not in st.session_state:
     st.session_state["images"] = []
+if "archived_orders" not in st.session_state:
+    st.session_state["archived_orders"] = []
 
 orders = st.session_state["orders"]
 images = st.session_state["images"]
+archived_orders = st.session_state["archived_orders"]
 
-# Add these:
 image_map = build_image_map(images)
 picture_map = build_picture_map(orders)
 
@@ -53,6 +60,7 @@ with col_refresh:
     if st.button("🔄 Daten aktualisieren"):
         st.session_state["orders"] = fetch_orders()
         st.session_state["images"] = fetch_images()
+        st.session_state["archived_orders"] = fetch_archived_orders()
         st.rerun()
 with col_pdf:
     st.download_button(
@@ -63,8 +71,8 @@ with col_pdf:
         use_container_width=True,
     )
 
-tab1, tab2, tab3, tab4, tab5 = st.tabs(
-    ["Bildübersicht", "Zahlungen", "Uploads", "Einstellungen", "Berechnungen"])
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+    ["Bildübersicht", "Zahlungen", "Uploads", "Einstellungen", "Berechnungen", "Archiv"])
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -83,8 +91,8 @@ with tab1:
                 ]
                 html = (
                     '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
-                    + "".join(tags) +
-                    "</div>"
+                    + "".join(tags)
+                    + "</div>"
                 )
                 st.markdown(html, unsafe_allow_html=True)
 
@@ -199,11 +207,17 @@ with tab2:
                         st.rerun()
                 else:
                     if st.button(f"✅ Als bezahlt markieren ({extra_cost:.2f}€)", key=f"pay_{order_id}"):
-                        update_payment(
-                            order_id, True)
+                        update_payment(order_id, True)
                         st.session_state["orders"] = fetch_orders()
                         st.session_state["images"] = fetch_images()
                         st.rerun()
+
+            st.markdown("")
+            if st.button("🗃️ Archivieren", key=f"archive_{order_id}"):
+                archive_order(order_id, True)
+                st.session_state["orders"] = fetch_orders()
+                st.session_state["archived_orders"] = fetch_archived_orders()
+                st.rerun()
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -245,6 +259,7 @@ with tab3:
                 st.image(url)
                 st.caption(f"{name} · #{pos}")
 
+
 # ═══════════════════════════════════════════════════════════════════
 # TAB 4 - SETTINGS
 # ═══════════════════════════════════════════════════════════════════
@@ -259,8 +274,6 @@ with tab4:
             "Max. Bilder pro Bestellung", value=cfg["MAX_IMAGES"], step=1)
         new_price = st.number_input(
             "Preis pro Bild (€)", value=cfg["NORMAL_IMAGE_PRICE"], step=0.01, format="%.2f")
-        # new_kasse = st.number_input("Preis den die Abikasse zahlt (€)",
-        #                             value=cfg["NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS"], step=0.01, format="%.2f")
         new_upload = st.number_input(
             "Preis eigene Fotos (€)", value=cfg["UPLOAD_PHOTO_PRICE"], step=0.01, format="%.2f")
         new_free = st.number_input(
@@ -270,10 +283,9 @@ with tab4:
             updates = {
                 "MAX_IMAGES": str(new_max),
                 "NORMAL_IMAGE_PRICE": str(new_price),
-                # No update for this one
-                "NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS": cfg["NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS"],
                 "UPLOAD_PHOTO_PRICE": str(new_upload),
                 "AMOUNT_OF_FREE_IMAGES": str(new_free),
+                "PRINTING_COST": str(cfg["PRINTING_COST"]),
             }
             success = True
             for key, value in updates.items():
@@ -289,16 +301,16 @@ with tab4:
                 st.cache_data.clear()
                 st.success("✅ Einstellungen gespeichert!")
 
+
 # ═══════════════════════════════════════════════════════════════════
 # TAB 5 - CALCULATIONS
 # ═══════════════════════════════════════════════════════════════════
 with tab5:
-    print_cost = 0.14
-    total_standard = 0   # normal/spaß LK+GK pics (extra, paid by student)
+    total_standard = 0
     total_mottowoche = 0
     total_stufenfotos = 0
     total_uploads = 0
-    total_free = 0   # pics covered by Abikasse
+    total_free = 0
 
     for order in orders:
         lk_typ = order.get("lk_typ") or []
@@ -316,33 +328,24 @@ with tab5:
 
     total_extra_images = total_standard + total_mottowoche + total_stufenfotos
 
-    # ── Revenue ───────────────────────────────────────────────────────────────
     rev_free = total_free * NORMAL_IMAGE_PRICE
-    rev_extra = sum(
-        calculate_extra_cost(order=o) for o in orders
-    )                                            # students pay for extras
+    rev_extra = sum(calculate_extra_cost(order=o) for o in orders)
     rev_uploads = total_uploads * UPLOAD_PHOTO_PRICE
     total_revenue = rev_free + rev_extra + rev_uploads
 
-    # ── Print costs ───────────────────────────────────────────────────────────
-    total_all_images = total_free + total_extra_images + total_uploads
-    total_print_cost = total_all_images * print_cost
+    total_all_images = total_extra_images + total_uploads
+    total_PRINTING_COST = total_all_images * PRINTING_COST
+    total_profit = total_revenue - total_PRINTING_COST
 
-    # ── Profit ────────────────────────────────────────────────────────────────
-    total_profit = total_revenue - total_print_cost
-
-    # ── Summary cards ─────────────────────────────────────────────────────────
     st.markdown("#### Übersicht")
     s1, s2, s3 = st.columns(3)
-    s1.metric("Gesamteinnahmen",  f"{total_revenue:.2f}€")
-    s2.metric("Druckkosten gesamt", f"{total_print_cost:.2f}€")
+    s1.metric("Gesamteinnahmen", f"{total_revenue:.2f}€")
+    s2.metric("Druckkosten gesamt", f"{total_PRINTING_COST:.2f}€")
     s3.metric("Gewinn", f"{total_profit:.2f}€",
-              delta=f"{total_profit:.2f}€",
-              delta_color="normal")
+              delta=f"{total_profit:.2f}€", delta_color="normal")
 
     st.divider()
 
-    # ── Free images row (Abikasse) ─────────────────────────────────────────────
     st.markdown("#### Gratis-Bilder (Abikasse zahlt)")
     h1, h2, h3, h4, h5 = st.columns([3, 1, 1, 1, 1])
     h1.markdown("**Typ**")
@@ -352,18 +355,17 @@ with tab5:
     h5.markdown("**Gewinn**")
 
     rev = total_free * NORMAL_IMAGE_PRICE
-    cost = total_free * print_cost
+    cost = total_free * PRINTING_COST
     profit = rev - cost
     c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
     c1.write(f"Normalbild (×{AMOUNT_OF_FREE_IMAGES} gratis p.P.)")
     c2.write(str(total_free))
     c3.write(f"{rev:.2f}€  ({NORMAL_IMAGE_PRICE:.2f}€/Stk)")
-    c4.write(f"{cost:.2f}€  ({print_cost:.2f}€/Stk)")
+    c4.write(f"{cost:.2f}€  ({PRINTING_COST:.2f}€/Stk)")
     c5.write(f"**{profit:.2f}€**")
 
     st.divider()
 
-    # ── Extra images breakdown ─────────────────────────────────────────────────
     st.markdown("#### Extra-Bilder (Student zahlt)")
     h1, h2, h3, h4, h5 = st.columns([3, 1, 1, 1, 1])
     h1.markdown("**Typ**")
@@ -373,23 +375,21 @@ with tab5:
     h5.markdown("**Gewinn**")
 
     rows = [
-        ("LK / GK Fotos",   total_standard,    NORMAL_IMAGE_PRICE),
-        ("Mottowoche",       total_mottowoche,  NORMAL_IMAGE_PRICE),
-        ("Stufenfotos",      total_stufenfotos, NORMAL_IMAGE_PRICE),
-        ("Eigene Uploads",   total_uploads,     UPLOAD_PHOTO_PRICE),
+        ("LK / GK Fotos",  total_standard,    NORMAL_IMAGE_PRICE),
+        ("Mottowoche",      total_mottowoche,  NORMAL_IMAGE_PRICE),
+        ("Stufenfotos",     total_stufenfotos, NORMAL_IMAGE_PRICE),
+        ("Eigene Uploads",  total_uploads,     UPLOAD_PHOTO_PRICE),
     ]
 
-    section_profit = 0.0
     for label, count, price in rows:
         rev = count * price
-        cost = count * print_cost
+        cost = count * PRINTING_COST
         profit = rev - cost
-        section_profit += profit
         c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
         c1.write(label)
         c2.write(str(count))
         c3.write(f"{rev:.2f}€  ({price:.2f}€/Stk)")
-        c4.write(f"{cost:.2f}€  ({print_cost:.2f}€/Stk)")
+        c4.write(f"{cost:.2f}€  ({PRINTING_COST:.2f}€/Stk)")
         c5.write(f"**{profit:.2f}€**")
 
     st.divider()
@@ -397,5 +397,59 @@ with tab5:
     t1.markdown("**Total**")
     t2.markdown(f"**{total_all_images}**")
     t3.markdown(f"**{total_revenue:.2f}€**")
-    t4.markdown(f"**{total_print_cost:.2f}€**")
+    t4.markdown(f"**{total_PRINTING_COST:.2f}€**")
     t5.markdown(f"**{total_profit:.2f}€**")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 6 - ARCHIVE
+# ═══════════════════════════════════════════════════════════════════
+with tab6:
+    st.markdown("### Archivierte Bestellungen")
+
+    if not archived_orders:
+        st.info("Keine archivierten Bestellungen.")
+    else:
+        st.caption(f"{len(archived_orders)} archivierte Bestellungen")
+
+        for order in archived_orders:
+            order_id = order["id"]
+            name = order.get("name", "?")
+            extra_cost = calculate_extra_cost(order=order)
+            is_paid = order.get("paid", False)
+            status = (
+                "🟦 GRATIS" if extra_cost == 0 else
+                "✅ BEZAHLT" if is_paid else
+                f"❌ {extra_cost:.2f}€"
+            )
+
+            with st.expander(f"{name}: {status}"):
+                lk_typ = order.get("lk_typ") or []
+                gk_tpy = order.get("gk_tpy") or []
+                kurs_pics = (
+                    [f"{order.get('leistungskurs', '')} {t}" for t in lk_typ] +
+                    [f"{order.get('grundkurs', '')} {t}" for t in gk_tpy]
+                )
+                if kurs_pics:
+                    st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))
+
+                mottos = [MOTTO_LABELS.get(m, f"Motto {m}") for m in (
+                    order.get("mottowoche") or [])]
+                if mottos:
+                    st.write("**Mottowoche:** " + "  ·  ".join(mottos))
+
+                stufen = [STUFEN_LABELS.get(s, f"Stufen {s}") for s in (
+                    order.get("stufenfotos") or [])]
+                if stufen:
+                    st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
+
+                extra_photos = order.get("extra_photos") or 0
+                if extra_photos > 0:
+                    st.write(f"**Eigene Fotos:** {extra_photos}x")
+
+                st.markdown("")
+                if st.button("↩️ Wiederherstellen", key=f"unarchive_{order_id}"):
+                    archive_order(order_id, False)
+                    st.session_state["orders"] = fetch_orders()
+                    st.session_state["archived_orders"] = fetch_archived_orders()
+                    st.rerun()

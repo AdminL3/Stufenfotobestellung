@@ -208,20 +208,37 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
         return None
 
 
-# ── DATA FETCH ────────────────────────────────────────────────────────────────
-def fetch_orders():
-    resp = requests.get(
-        ORDERS_URL,
-        headers=BASE_HEADERS,
-        params={"select": "*", "order": "created_at.asc"}
-    )
-    return resp.json() if resp.status_code == 200 else []
-
-
 def fetch_images():
     resp = requests.get(
         IMAGES_URL,
         headers=BASE_HEADERS,
         params={"select": "*", "order": "order_id,position.asc"}
+    )
+    return resp.json() if resp.status_code == 200 else []
+
+
+def archive_order(order_id, archived: bool):
+    resp = requests.patch(
+        f"{ORDERS_URL}?id=eq.{order_id}",
+        json={"archived": archived},
+        headers={**BASE_HEADERS, "Prefer": "return=minimal"}
+    )
+    return resp.status_code in [200, 201, 204]
+
+
+def fetch_orders():
+    resp = requests.get(
+        ORDERS_URL,
+        headers=BASE_HEADERS,
+        params={"select": "*", "order": "created_at.asc", "archived": "eq.false"}
+    )
+    return resp.json() if resp.status_code == 200 else []
+
+
+def fetch_archived_orders():
+    resp = requests.get(
+        ORDERS_URL,
+        headers=BASE_HEADERS,
+        params={"select": "*", "order": "created_at.asc", "archived": "eq.true"}
     )
     return resp.json() if resp.status_code == 200 else []
