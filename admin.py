@@ -1,8 +1,9 @@
 import streamlit as st
 import requests
 from config import (
-    NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS,
-    AMOUNT_OF_FREE_IMAGES
+    NORMAL_IMAGE_PRICE,
+    AMOUNT_OF_FREE_IMAGES,
+    UPLOAD_PHOTO_PRICE
 )
 from constants import (
     MOTTO_LABELS,
@@ -62,8 +63,8 @@ with col_pdf:
         use_container_width=True,
     )
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["📸 Bildübersicht", "💶 Zahlungen", "🖼️ Uploads", "⚙️ Einstellungen"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    ["Bildübersicht", "Zahlungen", "Uploads", "Einstellungen", "Berechnungen"])
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -109,7 +110,7 @@ with tab2:
 
         num_images = order.get("image_count") or 0
         covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
-        total_covered_payments += covered_images * NORMAL_IMAGE_PRICE_THAT_ABIKASSE_PAYS
+        total_covered_payments += covered_images * NORMAL_IMAGE_PRICE
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Bezahlt / Gratis", total_paid_orders)
@@ -287,3 +288,114 @@ with tab4:
             if success:
                 st.cache_data.clear()
                 st.success("✅ Einstellungen gespeichert!")
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 5 - CALCULATIONS
+# ═══════════════════════════════════════════════════════════════════
+with tab5:
+    print_cost = 0.14
+    total_standard = 0   # normal/spaß LK+GK pics (extra, paid by student)
+    total_mottowoche = 0
+    total_stufenfotos = 0
+    total_uploads = 0
+    total_free = 0   # pics covered by Abikasse
+
+    for order in orders:
+        lk_typ = order.get("lk_typ") or []
+        gk_tpy = order.get("gk_tpy") or []
+        mottos = order.get("mottowoche") or []
+        stufen = order.get("stufenfotos") or []
+        uploads = order.get("extra_photos") or 0
+        num_images = order.get("image_count") or 0
+
+        total_standard += len(lk_typ) + len(gk_tpy)
+        total_mottowoche += len(mottos)
+        total_stufenfotos += len(stufen)
+        total_uploads += uploads
+        total_free += min(num_images, AMOUNT_OF_FREE_IMAGES)
+
+    total_extra_images = total_standard + total_mottowoche + total_stufenfotos
+
+    # ── Revenue ───────────────────────────────────────────────────────────────
+    rev_free = total_free * NORMAL_IMAGE_PRICE
+    rev_extra = sum(
+        calculate_extra_cost(order=o) for o in orders
+    )                                            # students pay for extras
+    rev_uploads = total_uploads * UPLOAD_PHOTO_PRICE
+    total_revenue = rev_free + rev_extra + rev_uploads
+
+    # ── Print costs ───────────────────────────────────────────────────────────
+    total_all_images = total_free + total_extra_images + total_uploads
+    total_print_cost = total_all_images * print_cost
+
+    # ── Profit ────────────────────────────────────────────────────────────────
+    total_profit = total_revenue - total_print_cost
+
+    # ── Summary cards ─────────────────────────────────────────────────────────
+    st.markdown("#### Übersicht")
+    s1, s2, s3 = st.columns(3)
+    s1.metric("Gesamteinnahmen",  f"{total_revenue:.2f}€")
+    s2.metric("Druckkosten gesamt", f"{total_print_cost:.2f}€")
+    s3.metric("Gewinn", f"{total_profit:.2f}€",
+              delta=f"{total_profit:.2f}€",
+              delta_color="normal")
+
+    st.divider()
+
+    # ── Free images row (Abikasse) ─────────────────────────────────────────────
+    st.markdown("#### Gratis-Bilder (Abikasse zahlt)")
+    h1, h2, h3, h4, h5 = st.columns([3, 1, 1, 1, 1])
+    h1.markdown("**Typ**")
+    h2.markdown("**Anzahl**")
+    h3.markdown("**Verkaufspreis**")
+    h4.markdown("**Druckkosten**")
+    h5.markdown("**Gewinn**")
+
+    rev = total_free * NORMAL_IMAGE_PRICE
+    cost = total_free * print_cost
+    profit = rev - cost
+    c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
+    c1.write(f"Normalbild (×{AMOUNT_OF_FREE_IMAGES} gratis p.P.)")
+    c2.write(str(total_free))
+    c3.write(f"{rev:.2f}€  ({NORMAL_IMAGE_PRICE:.2f}€/Stk)")
+    c4.write(f"{cost:.2f}€  ({print_cost:.2f}€/Stk)")
+    c5.write(f"**{profit:.2f}€**")
+
+    st.divider()
+
+    # ── Extra images breakdown ─────────────────────────────────────────────────
+    st.markdown("#### Extra-Bilder (Student zahlt)")
+    h1, h2, h3, h4, h5 = st.columns([3, 1, 1, 1, 1])
+    h1.markdown("**Typ**")
+    h2.markdown("**Anzahl**")
+    h3.markdown("**Verkaufspreis**")
+    h4.markdown("**Druckkosten**")
+    h5.markdown("**Gewinn**")
+
+    rows = [
+        ("LK / GK Fotos",   total_standard,    NORMAL_IMAGE_PRICE),
+        ("Mottowoche",       total_mottowoche,  NORMAL_IMAGE_PRICE),
+        ("Stufenfotos",      total_stufenfotos, NORMAL_IMAGE_PRICE),
+        ("Eigene Uploads",   total_uploads,     UPLOAD_PHOTO_PRICE),
+    ]
+
+    section_profit = 0.0
+    for label, count, price in rows:
+        rev = count * price
+        cost = count * print_cost
+        profit = rev - cost
+        section_profit += profit
+        c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
+        c1.write(label)
+        c2.write(str(count))
+        c3.write(f"{rev:.2f}€  ({price:.2f}€/Stk)")
+        c4.write(f"{cost:.2f}€  ({print_cost:.2f}€/Stk)")
+        c5.write(f"**{profit:.2f}€**")
+
+    st.divider()
+    t1, t2, t3, t4, t5 = st.columns([3, 1, 1, 1, 1])
+    t1.markdown("**Total**")
+    t2.markdown(f"**{total_all_images}**")
+    t3.markdown(f"**{total_revenue:.2f}€**")
+    t4.markdown(f"**{total_print_cost:.2f}€**")
+    t5.markdown(f"**{total_profit:.2f}€**")
