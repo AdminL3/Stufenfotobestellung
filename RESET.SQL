@@ -61,7 +61,7 @@ ALTER TABLE config DISABLE ROW LEVEL SECURITY;
 
 INSERT INTO config (key, value) VALUES
     ('MAX_IMAGES',                          '20'),
-    ('NORMAL_IMAGE_PRICE',                  '0.25'),
+    ('NORMAL_IMAGE_PRICE',                  '0.22'),
     ('UPLOAD_PHOTO_PRICE',                  '0.49'),
     ('AMOUNT_OF_FREE_IMAGES',               '2'),
     ('PRINTING_COST',                       '0.14')
