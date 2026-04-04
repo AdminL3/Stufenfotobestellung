@@ -301,7 +301,6 @@ with tab4:
                 st.cache_data.clear()
                 st.success("✅ Einstellungen gespeichert!")
 
-
 # ═══════════════════════════════════════════════════════════════════
 # TAB 5 - CALCULATIONS
 # ═══════════════════════════════════════════════════════════════════
@@ -337,12 +336,25 @@ with tab5:
     total_PRINTING_COST = total_all_images * PRINTING_COST
     total_profit = total_revenue - total_PRINTING_COST
 
-    st.markdown("#### Übersicht")
-    s1, s2, s3 = st.columns(3)
-    s1.metric("Gesamteinnahmen", f"{total_revenue:.2f}€")
-    s2.metric("Druckkosten gesamt", f"{total_PRINTING_COST:.2f}€")
-    s3.metric("Gewinn", f"{total_profit:.2f}€",
-              delta=f"{total_profit:.2f}€", delta_color="normal")
+    # ── Profit forecast ───────────────────────────────────────────
+    st.markdown("#### Gewinnvorhersage")
+    fc1, fc2 = st.columns(2)
+    with fc1:
+        forecast_normal = st.number_input(
+            "Anzahl Normalbilder (Vorhersage)", min_value=0, value=total_extra_images, step=1)
+    with fc2:
+        forecast_uploads = st.number_input(
+            "Anzahl Uploads (Vorhersage)", min_value=0, value=total_uploads, step=1)
+
+    forecast_revenue = (forecast_normal * NORMAL_IMAGE_PRICE) + \
+        (forecast_uploads * UPLOAD_PHOTO_PRICE)
+    forecast_cost = (forecast_normal + forecast_uploads) * PRINTING_COST
+    forecast_profit = forecast_revenue - forecast_cost
+
+    f1, f2, f3 = st.columns(3)
+    f1.metric("Erwartete Einnahmen", f"{forecast_revenue:.2f}€")
+    f2.metric("Erwartete Druckkosten", f"{forecast_cost:.2f}€")
+    f3.metric("Erwarteter Gewinn", f"{forecast_profit:.2f}€")
 
     st.divider()
 
@@ -356,13 +368,12 @@ with tab5:
 
     rev = total_free * NORMAL_IMAGE_PRICE
     cost = total_free * PRINTING_COST
-    profit = rev - cost
     c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
-    c1.write(f"Normalbild (×{AMOUNT_OF_FREE_IMAGES} gratis p.P.)")
+    c1.write(f"Normalbild ({AMOUNT_OF_FREE_IMAGES} gratis)")
     c2.write(str(total_free))
-    c3.write(f"{rev:.2f}€  ({NORMAL_IMAGE_PRICE:.2f}€/Stk)")
-    c4.write(f"{cost:.2f}€  ({PRINTING_COST:.2f}€/Stk)")
-    c5.write(f"**{profit:.2f}€**")
+    c3.write(f"{rev:.2f}€")
+    c4.write(f"{cost:.2f}€")
+    c5.write(f"**{rev - cost:.2f}€**")
 
     st.divider()
 
@@ -375,31 +386,58 @@ with tab5:
     h5.markdown("**Gewinn**")
 
     rows = [
-        ("LK / GK Fotos",  total_standard,    NORMAL_IMAGE_PRICE),
-        ("Mottowoche",      total_mottowoche,  NORMAL_IMAGE_PRICE),
-        ("Stufenfotos",     total_stufenfotos, NORMAL_IMAGE_PRICE),
-        ("Eigene Uploads",  total_uploads,     UPLOAD_PHOTO_PRICE),
+        ("LK / GK Fotos", total_standard,    NORMAL_IMAGE_PRICE),
+        ("Mottowoche",     total_mottowoche,  NORMAL_IMAGE_PRICE),
+        ("Stufenfotos",    total_stufenfotos, NORMAL_IMAGE_PRICE),
+        ("Eigene Uploads", total_uploads,     UPLOAD_PHOTO_PRICE),
     ]
 
     for label, count, price in rows:
         rev = count * price
         cost = count * PRINTING_COST
-        profit = rev - cost
         c1, c2, c3, c4, c5 = st.columns([3, 1, 1, 1, 1])
         c1.write(label)
         c2.write(str(count))
-        c3.write(f"{rev:.2f}€  ({price:.2f}€/Stk)")
-        c4.write(f"{cost:.2f}€  ({PRINTING_COST:.2f}€/Stk)")
-        c5.write(f"**{profit:.2f}€**")
+        c3.write(f"{rev:.2f}€")
+        c4.write(f"{cost:.2f}€")
+        c5.write(f"**{rev - cost:.2f}€**")
 
+    # st.divider()
+
+    s0, s1, s2, s3, s4 = st.columns([3, 1, 1, 1, 1])
+    s1.metric("Anzahl Bilder", str(total_all_images))
+    s2.metric("Gesamteinnahmen", f"{total_revenue:.2f}€")
+    s3.metric("Druckkosten gesamt", f"{total_PRINTING_COST:.2f}€")
+    s4.metric("Gewinn", f"{total_profit:.2f}€")
+
+    # ── Per-unit pricing breakdown ────────────────────────────────
     st.divider()
-    t1, t2, t3, t4, t5 = st.columns([3, 1, 1, 1, 1])
-    t1.markdown("**Total**")
-    t2.markdown(f"**{total_all_images}**")
-    t3.markdown(f"**{total_revenue:.2f}€**")
-    t4.markdown(f"**{total_PRINTING_COST:.2f}€**")
-    t5.markdown(f"**{total_profit:.2f}€**")
+    st.markdown("#### Preisstruktur pro Bild")
 
+    margin_normal = NORMAL_IMAGE_PRICE - PRINTING_COST
+    margin_upload = UPLOAD_PHOTO_PRICE - PRINTING_COST
+    margin_pct_normal = (margin_normal / NORMAL_IMAGE_PRICE *
+                         100) if NORMAL_IMAGE_PRICE else 0
+    margin_pct_upload = (margin_upload / UPLOAD_PHOTO_PRICE *
+                         100) if UPLOAD_PHOTO_PRICE else 0
+
+    pu1, pu2 = st.columns(2)
+
+    with pu1:
+        st.markdown("**Normalbild / Mottowoche / Stufenfoto**")
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Verkaufspreis", f"{NORMAL_IMAGE_PRICE:.2f}€")
+        p2.metric("Druckkosten",   f"{PRINTING_COST:.2f}€")
+        p3.metric("Marge",         f"{margin_normal:.2f}€",
+                  delta=f"{margin_pct_normal:.0f}%", delta_color="normal")
+
+    with pu2:
+        st.markdown("**Eigener Upload**")
+        p1, p2, p3 = st.columns(3)
+        p1.metric("Verkaufspreis", f"{UPLOAD_PHOTO_PRICE:.2f}€")
+        p2.metric("Druckkosten",   f"{PRINTING_COST:.2f}€")
+        p3.metric("Marge",         f"{margin_upload:.2f}€",
+                  delta=f"{margin_pct_upload:.0f}%", delta_color="normal")
 
 # ═══════════════════════════════════════════════════════════════════
 # TAB 6 - ARCHIVE
