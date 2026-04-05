@@ -1,6 +1,7 @@
     -- ── RESET ─────────────────────────────────────────────────────────────────────
     DROP TABLE IF EXISTS order_images CASCADE;
     DROP TABLE IF EXISTS orders CASCADE;
+    DROP TABLE IF EXISTS config;
 
     -- ── STORAGE BUCKET ────────────────────────────────────────────────────────────
     INSERT INTO storage.buckets (id, name, public)
