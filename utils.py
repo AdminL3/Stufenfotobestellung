@@ -53,7 +53,7 @@ def build_picture_map(orders):
         gk = o.get("grundkurs")
         for t in (o.get("lk_typ") or []):
             picture_map[("lk", lk, t)].append((name, is_paid))
-        for t in (o.get("gk_tpy") or []):
+        for t in (o.get("gk_typ") or []):
             picture_map[("gk", gk, t)].append((name, is_paid))
         for m in (o.get("mottowoche") or []):
             picture_map[("motto", int(m))].append((name, is_paid))

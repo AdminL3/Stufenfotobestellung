@@ -27,7 +27,7 @@ CREATE TABLE orders (
     leistungskurs     text,
     lk_typ            text[],
     grundkurs         text,
-    gk_tpy            text[],
+    gk_typ            text[],
     mottowoche        int[],
     stufenfotos       int[],
     extra_photos      int DEFAULT 0,

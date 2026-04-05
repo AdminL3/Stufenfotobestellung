@@ -35,11 +35,11 @@ st.markdown(BADGE_CSS, unsafe_allow_html=True)
 # ── LOAD DATA ─────────────────────────────────────────────────────────────────
 # ── LOAD DATA ─────────────────────────────────────────────────────────────────
 if "orders" not in st.session_state:
-    st.session_state["orders"] = []
+    st.session_state["orders"] = fetch_orders()
 if "images" not in st.session_state:
-    st.session_state["images"] = []
+    st.session_state["images"] = fetch_images()
 if "archived_orders" not in st.session_state:
-    st.session_state["archived_orders"] = []
+    st.session_state["archived_orders"] = fetch_archived_orders()
 
 orders = st.session_state["orders"]
 images = st.session_state["images"]
@@ -158,7 +158,7 @@ with tab2:
         name = order.get("name", "?")
 
         lk_typ = order.get("lk_typ") or []
-        gk_tpy = order.get("gk_tpy") or []
+        gk_typ = order.get("gk_typ") or []
 
         badge = (
             '<span class="free-badge">GRATIS</span>' if is_free else
@@ -172,7 +172,7 @@ with tab2:
 
             kurs_pics = (
                 [f"{order.get('leistungskurs', '')} {t}" for t in lk_typ] +
-                [f"{order.get('grundkurs', '')} {t}" for t in gk_tpy]
+                [f"{order.get('grundkurs', '')} {t}" for t in gk_typ]
             )
             if kurs_pics:
                 st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))
@@ -313,13 +313,13 @@ with tab5:
 
     for order in orders:
         lk_typ = order.get("lk_typ") or []
-        gk_tpy = order.get("gk_tpy") or []
+        gk_typ = order.get("gk_typ") or []
         mottos = order.get("mottowoche") or []
         stufen = order.get("stufenfotos") or []
         uploads = order.get("extra_photos") or 0
         num_images = order.get("image_count") or 0
 
-        total_standard += len(lk_typ) + len(gk_tpy)
+        total_standard += len(lk_typ) + len(gk_typ)
         total_mottowoche += len(mottos)
         total_stufenfotos += len(stufen)
         total_uploads += uploads
@@ -328,7 +328,11 @@ with tab5:
     total_extra_images = total_standard + total_mottowoche + total_stufenfotos
 
     rev_free = total_free * NORMAL_IMAGE_PRICE
-    rev_extra = sum(calculate_extra_cost(order=o) for o in orders)
+    rev_extra = sum(
+        max((o.get("image_count") or 0) -
+            AMOUNT_OF_FREE_IMAGES, 0) * NORMAL_IMAGE_PRICE
+        for o in orders
+    )
     rev_uploads = total_uploads * UPLOAD_PHOTO_PRICE
     total_revenue = rev_free + rev_extra + rev_uploads
 
@@ -463,10 +467,10 @@ with tab6:
 
             with st.expander(f"{name}: {status}"):
                 lk_typ = order.get("lk_typ") or []
-                gk_tpy = order.get("gk_tpy") or []
+                gk_typ = order.get("gk_typ") or []
                 kurs_pics = (
                     [f"{order.get('leistungskurs', '')} {t}" for t in lk_typ] +
-                    [f"{order.get('grundkurs', '')} {t}" for t in gk_tpy]
+                    [f"{order.get('grundkurs', '')} {t}" for t in gk_typ]
                 )
                 if kurs_pics:
                     st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))

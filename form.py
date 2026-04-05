@@ -35,16 +35,16 @@ name = st.text_input("Name")
 st.subheader("Leistungskurs Foto")
 lk_choice = st.radio("Leistungskurs auswählen", LK_OPTIONS)
 st.write("Typ auswählen:")
-lk_tpy = []
+lk_typ = []
 if st.checkbox("Normalbild", key="lk_normal"):
-    lk_tpy.append("Normalbild")
+    lk_typ.append("Normalbild")
 if st.checkbox("Spaßbild", key="lk_spass"):
-    lk_tpy.append("Spaßbild")
+    lk_typ.append("Spaßbild")
 
 # LK Preview
-if lk_tpy:
+if lk_typ:
     cols = st.columns(2)
-    for idx, t in enumerate(lk_tpy):
+    for idx, t in enumerate(lk_typ):
         img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
         if img_url:
             with cols[idx]:
@@ -54,16 +54,16 @@ if lk_tpy:
 st.subheader("Grundkurs Foto")
 gk_choice = st.radio("Grundkurs auswählen", GK_OPTIONS)
 st.write("Typ auswählen:")
-gk_tpy = []
+gk_typ = []
 if st.checkbox("Normalbild", key="gk_normal"):
-    gk_tpy.append("Normalbild")
+    gk_typ.append("Normalbild")
 if st.checkbox("Spaßbild", key="gk_spass"):
-    gk_tpy.append("Spaßbild")
+    gk_typ.append("Spaßbild")
 
 # GK Preview
-if gk_tpy:
+if gk_typ:
     cols = st.columns(2)
-    for idx, t in enumerate(gk_tpy):
+    for idx, t in enumerate(gk_typ):
         img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
         if img_url:
             with cols[idx]:
@@ -106,7 +106,7 @@ if selected_stufen:
     for idx, s in enumerate(selected_stufen):
         img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
         if img_url:
-            with cols[idx % 3]:
+            with cols[idx % 2]:
                 st.image(img_url, caption=STUFEN_LABELS.get(
                     s, str(s)))
 
@@ -131,7 +131,7 @@ if uploaded_files:
     with st.expander("📸 Vorschau der hochgeladenen Fotos"):
         cols = st.columns(2)
         for idx, image in enumerate(uploaded_files):
-            with cols[idx % 3]:
+            with cols[idx % 2]:
                 st.image(
                     image,
                     caption=image.name,
@@ -139,7 +139,7 @@ if uploaded_files:
 
 
 # Cost calculation
-num_images = len(lk_tpy) + len(gk_tpy) + \
+num_images = len(lk_typ) + len(gk_typ) + \
     len(selected_mottos) + len(selected_stufen)
 extra_cost = calculate_extra_cost(
     num_images=num_images, extra_photos=amount_uploaded_fotos)
@@ -184,9 +184,9 @@ if st.session_state.get("confirmed"):
     order_data = {
         "name": name,
         "leistungskurs": lk_choice,
-        "lk_typ": lk_tpy,
+        "lk_typ": lk_typ,
         "grundkurs": gk_choice,
-        "gk_tpy": gk_tpy,
+        "gk_typ": gk_typ,
         "mottowoche": selected_mottos,
         "stufenfotos": selected_stufen,
         "extra_photos": amount_uploaded_fotos,
