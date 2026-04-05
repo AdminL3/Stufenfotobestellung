@@ -32,7 +32,6 @@ CREATE TABLE orders (
     stufenfotos       int[],
     extra_photos      int DEFAULT 0,
     image_count       int DEFAULT 0,
-    extra_cost        numeric(6,2) DEFAULT 0,
     paid              boolean DEFAULT false,
     archived          boolean DEFAULT false
 );
