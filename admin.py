@@ -1,12 +1,12 @@
 import streamlit as st
 import requests
-from config import (
+from helper.config import (
     NORMAL_IMAGE_PRICE,
     AMOUNT_OF_FREE_IMAGES,
     UPLOAD_PHOTO_PRICE,
     PRINTING_COST
 )
-from constants import (
+from helper.constants import (
     MOTTO_LABELS,
     STUFEN_LABELS,
     BADGE_CSS,
@@ -14,7 +14,7 @@ from constants import (
     TAG_UNPAID,
     BASE_HEADERS
 )
-from utils import (
+from helper.utils import (
     calculate_extra_cost,
     format_label,
     update_payment,
@@ -266,7 +266,7 @@ with tab3:
 with tab4:
     st.markdown("### Preise & Einstellungen")
 
-    from config import load_config, CONFIG_URL
+    from helper.config import load_config, CONFIG_URL
     cfg = load_config()
 
     with st.form("config_form"):

@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 from datetime import datetime
-from constants import (
+from helper.constants import (
     BASE_HEADERS,
     LK_OPTIONS,
     GK_OPTIONS,
@@ -10,13 +10,13 @@ from constants import (
     STUFEN_LABELS,
     SUPABASE_URL
 )
-from config import (
+from helper.config import (
     MAX_IMAGES,
     NORMAL_IMAGE_PRICE,
     UPLOAD_PHOTO_PRICE,
     AMOUNT_OF_FREE_IMAGES
 )
-from utils import (
+from helper.utils import (
     upload_image_to_supabase,
     calculate_extra_cost
 )

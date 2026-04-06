@@ -7,7 +7,7 @@ from reportlab.lib.units import cm
 from reportlab.lib import colors
 from datetime import datetime
 import streamlit as st
-from constants import (
+from helper.constants import (
     SUPABASE_URL,
     SUPABASE_KEY,
     BUCKET_NAME,
@@ -17,7 +17,7 @@ from constants import (
     IMAGES_URL,
     BASE_HEADERS
 )
-from config import (
+from helper.config import (
     NORMAL_IMAGE_PRICE,
     UPLOAD_PHOTO_PRICE,
     AMOUNT_OF_FREE_IMAGES

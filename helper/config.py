@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-from constants import ORDERS_URL, BASE_HEADERS
+from helper.constants import ORDERS_URL, BASE_HEADERS
 
 CONFIG_URL = ORDERS_URL.replace("/orders", "/config")
 
