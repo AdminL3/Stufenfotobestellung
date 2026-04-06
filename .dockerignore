@@ -3,6 +3,6 @@
 .vscode
 __pycache__
 Rossmann Fotowelt
-**\Fotos.ods
-**\.~lock.Fotos.ods\#
+**/Fotos.ods
+**/.~lock.Fotos.ods#
 fly.toml
