@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 LK_OPTIONS = ["Englisch", "Geschichte", "Geo",
               "Sport", "Kunst", "Französisch", "Physik"]
@@ -17,8 +18,9 @@ STUFEN_LABELS = {
 }
 
 BUCKET_NAME = "images"
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_ANON_KEY"]
+
+SUPABASE_URL = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
 ORDERS_URL = f"{SUPABASE_URL}/rest/v1/orders"
 IMAGES_URL = f"{SUPABASE_URL}/rest/v1/order_images"
 
