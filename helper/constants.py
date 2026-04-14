@@ -24,6 +24,22 @@ SUPABASE_KEY = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
 ORDERS_URL = f"{SUPABASE_URL}/rest/v1/orders"
 IMAGES_URL = f"{SUPABASE_URL}/rest/v1/order_images"
 
+NAME_OPTIONS = [
+    "Name 1",
+    "Name 2",
+    "Name 3",
+]
+
+SIZE_OPTIONS = ["S", "M", "L", "XL", "XXL"]
+
+COLOR_OPTIONS = [
+    "Farbe 1",
+    "Farbe 2",
+    "Farbe 3",
+    "Farbe 4",
+    "Farbe 5",
+]
+
 
 BASE_HEADERS = {
     "apikey": SUPABASE_KEY,

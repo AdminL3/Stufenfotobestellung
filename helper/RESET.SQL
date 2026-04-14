@@ -1,78 +1,118 @@
-    -- ── RESET ─────────────────────────────────────────────────────────────────────
-    DROP TABLE IF EXISTS order_images CASCADE;
-    DROP TABLE IF EXISTS orders CASCADE;
-    DROP TABLE IF EXISTS config;
+-- ═══════════════════════════════════════════════════════════════════════════
+-- FOTOBESTELLUNG – setup.sql
+-- Run this in your Supabase SQL editor to initialize both databases.
+--
+-- Section 1 → fotobestellung DB  (orders, order_images, config, storage)
+-- Section 2 → abimerch DB        (abimerch table)
+--
+-- Run Section 1 in your FOTOBESTELLUNG Supabase project.
+-- Run Section 2 in your ABIMERCH Supabase project.
+-- ═══════════════════════════════════════════════════════════════════════════
 
-    -- ── STORAGE BUCKET ────────────────────────────────────────────────────────────
-    INSERT INTO storage.buckets (id, name, public)
-    VALUES ('images', 'images', true)
-    ON CONFLICT (id) DO NOTHING;
 
-    DROP POLICY IF EXISTS "Allow anon uploads" ON storage.objects;
-    CREATE POLICY "Allow anon uploads"
-    ON storage.objects FOR INSERT
-    TO anon
-    WITH CHECK (bucket_id = 'images');
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║  SECTION 1 – FOTOBESTELLUNG DB                                           ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
 
-    DROP POLICY IF EXISTS "Allow public reads" ON storage.objects;
-    CREATE POLICY "Allow public reads"
-    ON storage.objects FOR SELECT
-    TO anon
-    USING (bucket_id = 'images');
+-- ── RESET ─────────────────────────────────────────────────────────────────────
+DROP TABLE IF EXISTS order_images CASCADE;
+DROP TABLE IF EXISTS orders CASCADE;
+DROP TABLE IF EXISTS config;
 
-    -- ── ORDERS TABLE ──────────────────────────────────────────────────────────────
-    CREATE TABLE orders (
-        id                uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-        created_at        timestamptz DEFAULT now(),
-        name              text NOT NULL,
-        leistungskurs     text,
-        lk_typ            text[],
-        grundkurs         text,
-        gk_typ            text[],
-        mottowoche        int[],
-        stufenfotos       int[],
-        extra_photos      int DEFAULT 0,
-        image_count       int DEFAULT 0,
-        paid              boolean DEFAULT false,
-        archived          boolean DEFAULT false
-    );
+-- ── STORAGE BUCKET ────────────────────────────────────────────────────────────
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('images', 'images', true)
+ON CONFLICT (id) DO NOTHING;
 
-    ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Allow anon uploads" ON storage.objects;
+CREATE POLICY "Allow anon uploads"
+ON storage.objects FOR INSERT
+TO anon
+WITH CHECK (bucket_id = 'images');
 
-    -- ── IMAGES TABLE ──────────────────────────────────────────────────────────────
-    CREATE TABLE order_images (
-        id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-        created_at  timestamptz DEFAULT now(),
-        order_id    uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-        url         text NOT NULL,
-        filename    text,
-        position    int
-    );
+DROP POLICY IF EXISTS "Allow public reads" ON storage.objects;
+CREATE POLICY "Allow public reads"
+ON storage.objects FOR SELECT
+TO anon
+USING (bucket_id = 'images');
 
-    ALTER TABLE order_images DISABLE ROW LEVEL SECURITY;
+-- ── ORDERS TABLE ──────────────────────────────────────────────────────────────
+CREATE TABLE orders (
+    id                uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at        timestamptz DEFAULT now(),
+    name              text NOT NULL,
+    leistungskurs     text,
+    lk_typ            text[],
+    grundkurs         text,
+    gk_typ            text[],
+    mottowoche        int[],
+    stufenfotos       int[],
+    extra_photos      int DEFAULT 0,
+    image_count       int DEFAULT 0,
+    paid              boolean DEFAULT false,
+    archived          boolean DEFAULT false
+);
 
-    -- ── CONFIG TABLE ──────────────────────────────────────────────────────────────
-    CREATE TABLE config (
-        key    text PRIMARY KEY,
-        value  text NOT NULL
-    );
+ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
 
-    ALTER TABLE config DISABLE ROW LEVEL SECURITY;
+-- ── IMAGES TABLE ──────────────────────────────────────────────────────────────
+CREATE TABLE order_images (
+    id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at  timestamptz DEFAULT now(),
+    order_id    uuid NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    url         text NOT NULL,
+    filename    text,
+    position    int
+);
 
-    INSERT INTO config (key, value) VALUES
-        ('MAX_IMAGES',                          '20'),
-        ('NORMAL_IMAGE_PRICE',                  '0.22'),
-        ('UPLOAD_PHOTO_PRICE',                  '0.45'),
-        ('AMOUNT_OF_FREE_IMAGES',               '3'),
-        ('PRINTING_COST',                       '0.14')
-    ON CONFLICT (key) DO NOTHING;
+ALTER TABLE order_images DISABLE ROW LEVEL SECURITY;
 
-    -- ── GRANTS ────────────────────────────────────────────────────────────────────
-    GRANT USAGE ON SCHEMA public TO anon;
-    GRANT INSERT, SELECT ON TABLE orders TO anon;
-    GRANT INSERT, SELECT ON TABLE order_images TO anon;
-    GRANT SELECT ON TABLE config TO anon;
+-- ── CONFIG TABLE ──────────────────────────────────────────────────────────────
+CREATE TABLE config (
+    key    text PRIMARY KEY,
+    value  text NOT NULL
+);
 
-    -- Admin needs UPDATE for payments, archiving, and config changes
-    GRANT UPDATE ON TABLE orders TO anon;
-    GRANT UPDATE ON TABLE config TO anon;
+ALTER TABLE config DISABLE ROW LEVEL SECURITY;
+
+INSERT INTO config (key, value) VALUES
+    ('MAX_IMAGES',              '20'),
+    ('NORMAL_IMAGE_PRICE',      '0.20'),
+    ('UPLOAD_PHOTO_PRICE',      '0.40'),
+    ('AMOUNT_OF_FREE_IMAGES',   '2'),
+    ('PRINTING_COST',           '0.14')
+ON CONFLICT (key) DO NOTHING;
+
+-- ── GRANTS ────────────────────────────────────────────────────────────────────
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT INSERT, SELECT ON TABLE orders TO anon;
+GRANT INSERT, SELECT ON TABLE order_images TO anon;
+GRANT SELECT ON TABLE config TO anon;
+
+-- Admin needs UPDATE for payments, archiving, and config changes
+GRANT UPDATE ON TABLE orders TO anon;
+GRANT UPDATE ON TABLE config TO anon;
+
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║  SECTION 2 – ABIMERCH DB                                                 ║
+-- ║  Run this in your separate ABIMERCH Supabase project.                    ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
+
+-- ── RESET ─────────────────────────────────────────────────────────────────────
+DROP TABLE IF EXISTS abimerch CASCADE;
+
+-- ── ABIMERCH TABLE ────────────────────────────────────────────────────────────
+CREATE TABLE abimerch (
+    id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at  timestamptz DEFAULT now(),
+    name        text NOT NULL,
+    size        text NOT NULL,
+    color       text NOT NULL
+);
+
+ALTER TABLE abimerch DISABLE ROW LEVEL SECURITY;
+
+-- ── GRANTS ────────────────────────────────────────────────────────────────────
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT INSERT, SELECT ON TABLE abimerch TO anon;

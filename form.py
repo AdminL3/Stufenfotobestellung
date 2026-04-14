@@ -3,10 +3,13 @@ import requests
 from datetime import datetime
 from helper.constants import (
     BASE_HEADERS,
+    COLOR_OPTIONS,
     LK_OPTIONS,
     GK_OPTIONS,
     MOTTO_LABELS,
+    NAME_OPTIONS,
     PREVIEW_IMAGES,
+    SIZE_OPTIONS,
     STUFEN_LABELS,
     SUPABASE_URL
 )
@@ -21,219 +24,256 @@ from helper.utils import (
     calculate_extra_cost
 )
 
+# ── PAGE ──────────────────────────────────────────────────────────────────────
+st.set_page_config(page_title="Bestellung")
+st.title("Foto und Hoodie Bestellung")
 
-st.set_page_config(page_title="Fotobestellung")
-st.title("📸 Fotobestellung")
-st.write(
-    f"{AMOUNT_OF_FREE_IMAGES} Bilder sind gratis. Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€. Eigene Fotos kosten {UPLOAD_PHOTO_PRICE:.2f}€.")
-
-st.write(f"12,7 x 17,8cm - matt")
-# Name
-name = st.text_input("Name")
-
-# Leistungskurs
-st.subheader("Leistungskurs Foto")
-lk_choice = st.radio("Leistungskurs auswählen", LK_OPTIONS)
-st.write("Typ auswählen:")
-lk_typ = []
-if st.checkbox("Normalbild", key="lk_normal"):
-    lk_typ.append("Normalbild")
-if st.checkbox("Spaßbild", key="lk_spass"):
-    lk_typ.append("Spaßbild")
-
-# LK Preview
-if lk_typ:
-    cols = st.columns(2)
-    for idx, t in enumerate(lk_typ):
-        img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
-        if img_url:
-            with cols[idx]:
-                st.image(img_url, caption=t)
-
-# Grundkurs
-st.subheader("Grundkurs Foto")
-gk_choice = st.radio("Grundkurs auswählen", GK_OPTIONS)
-st.write("Typ auswählen:")
-gk_typ = []
-if st.checkbox("Normalbild", key="gk_normal"):
-    gk_typ.append("Normalbild")
-if st.checkbox("Spaßbild", key="gk_spass"):
-    gk_typ.append("Spaßbild")
-
-# GK Preview
-if gk_typ:
-    cols = st.columns(2)
-    for idx, t in enumerate(gk_typ):
-        img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
-        if img_url:
-            with cols[idx]:
-                st.image(img_url, caption=t)
-
-# Mottowoche
-st.subheader("Mottowoche")
-
-for k, label in MOTTO_LABELS.items():
-    st.checkbox(label, key=f"{k}_motto_checkbox")
-
-selected_mottos = [
-    k for k in MOTTO_LABELS
-    if st.session_state.get(f"{k}_motto_checkbox")
-]
-
-# Mottowoche Preview
-if selected_mottos:
-    cols = st.columns(2)
-    for idx, m in enumerate(selected_mottos):
-        img_url = PREVIEW_IMAGES["mottowoche"].get(m)
-        if img_url:
-            with cols[idx % 2]:
-                st.image(img_url, caption=MOTTO_LABELS.get(
-                    m, str(m)))
-
-# Stufenfotos
-st.subheader(f"Stufenfotos")
-for k, label in STUFEN_LABELS.items():
-    st.checkbox(label, key=f"{k}_stufen_checkbox")
-
-selected_stufen = [
-    k for k in STUFEN_LABELS
-    if st.session_state.get(f"{k}_stufen_checkbox")
-]
-
-# Stufenfotos Preview
-if selected_stufen:
-    cols = st.columns(2)
-    for idx, s in enumerate(selected_stufen):
-        img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
-        if img_url:
-            with cols[idx % 2]:
-                st.image(img_url, caption=STUFEN_LABELS.get(
-                    s, str(s)))
+# ── TABS ──────────────────────────────────────────────────────────────────────
+tab_foto, tab_merch = st.tabs(["Fotos", "Hoodies"])
 
 
-# ── IMAGE UPLOAD ───────────────────────────────────────────────────────────────
-st.subheader(
-    f"Eigene Fotos hochladen zum drucken (optional)")
-st.write(f"{UPLOAD_PHOTO_PRICE:.2f}€ pro Bild")
-uploaded_files = st.file_uploader(
-    "Fotos auswählen",
-    type=["jpg", "jpeg", "png", "webp"],
-    accept_multiple_files=True
-)
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 - FOTOBESTELLUNG
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_foto:
+    st.write(
+        f"{AMOUNT_OF_FREE_IMAGES} Bilder sind gratis. "
+        f"Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€. "
+        f"Eigene Uploads kosten {UPLOAD_PHOTO_PRICE:.2f}€."
+    )
+    st.write("12,7 x 17,8cm - matt")
 
-if uploaded_files and len(uploaded_files) > MAX_IMAGES:
-    uploaded_files = uploaded_files[:MAX_IMAGES]
-    st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
-amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
+    # Name
+    foto_name = st.text_input("Name", key="foto_name")
 
-# ── IMAGE PREVIEW ──────────────────────────────────────────────────────────────
-if uploaded_files:
-    with st.expander("📸 Vorschau der hochgeladenen Fotos"):
+    # Leistungskurs
+    st.subheader("Leistungskurs Foto")
+    lk_choice = st.radio("Leistungskurs auswählen", LK_OPTIONS)
+    st.write("Typ auswählen:")
+    lk_typ = []
+    if st.checkbox("Normalbild", key="lk_normal"):
+        lk_typ.append("Normalbild")
+    if st.checkbox("Spaßbild", key="lk_spass"):
+        lk_typ.append("Spaßbild")
+
+    if lk_typ:
         cols = st.columns(2)
-        for idx, image in enumerate(uploaded_files):
-            with cols[idx % 2]:
-                st.image(
-                    image,
-                    caption=image.name,
-                )
+        for idx, t in enumerate(lk_typ):
+            img_url = PREVIEW_IMAGES["lk"].get(lk_choice, {}).get(t)
+            if img_url:
+                with cols[idx]:
+                    st.image(img_url, caption=t)
 
+    # Grundkurs
+    st.subheader("Grundkurs Foto")
+    gk_choice = st.radio("Grundkurs auswählen", GK_OPTIONS)
+    st.write("Typ auswählen:")
+    gk_typ = []
+    if st.checkbox("Normalbild", key="gk_normal"):
+        gk_typ.append("Normalbild")
+    if st.checkbox("Spaßbild", key="gk_spass"):
+        gk_typ.append("Spaßbild")
 
-# Cost calculation
-num_images = len(lk_typ) + len(gk_typ) + \
-    len(selected_mottos) + len(selected_stufen)
-extra_cost = calculate_extra_cost(
-    num_images=num_images, extra_photos=amount_uploaded_fotos)
-covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
+    if gk_typ:
+        cols = st.columns(2)
+        for idx, t in enumerate(gk_typ):
+            img_url = PREVIEW_IMAGES["gk"].get(gk_choice, {}).get(t)
+            if img_url:
+                with cols[idx]:
+                    st.image(img_url, caption=t)
 
-if extra_cost > 0:
-    st.warning(
-        f"⚠️ Zusatzkosten: **{extra_cost:.2f}€** - {num_images} Bilder ausgewählt, {covered_images} gratis")
-else:
-    st.success("✅ Alle Bilder sind gratis!")
+    # Mottowoche
+    st.subheader("Mottowoche")
+    for k, label in MOTTO_LABELS.items():
+        st.checkbox(label, key=f"{k}_motto_checkbox")
 
+    selected_mottos = [
+        k for k in MOTTO_LABELS
+        if st.session_state.get(f"{k}_motto_checkbox")
+    ]
 
-# ── SUBMIT ────────────────────────────────────────────────────────────────────
-if st.button("Absenden", type="primary"):
-    if not name:
-        st.error("Bitte Namen eingeben.")
-        st.stop()
-    if extra_cost > 0:
-        st.session_state["pending_order"] = True
-    else:
-        st.session_state["pending_order"] = False
-        st.session_state["confirmed"] = True
+    if selected_mottos:
+        cols = st.columns(2)
+        for idx, m in enumerate(selected_mottos):
+            img_url = PREVIEW_IMAGES["mottowoche"].get(m)
+            if img_url:
+                with cols[idx % 2]:
+                    st.image(img_url, caption=MOTTO_LABELS.get(m, str(m)))
 
-if st.session_state.get("pending_order") and not st.session_state.get("confirmed"):
-    st.warning(
-        f"⚠️ Du musst **{extra_cost:.2f}€** bezahlen. "
-        f"Deine Fotos werden nur gedruckt, wenn du bezahlt hast. "
-    )
-    st.info(f"PayPal an: l-blu@outlook.de oder gib Levi das Geld persönlich.")
-    if st.button("✅ Bestätigen", type="primary"):
-        st.session_state["confirmed"] = True
-        st.rerun()
-    if st.button("❌ Abbrechen"):
-        st.session_state["pending_order"] = False
-        st.rerun()
+    # Stufenfotos
+    st.subheader("Stufenfotos")
+    for k, label in STUFEN_LABELS.items():
+        st.checkbox(label, key=f"{k}_stufen_checkbox")
 
-if st.session_state.get("confirmed"):
-    st.session_state["pending_order"] = False
-    st.session_state["confirmed"] = False
+    selected_stufen = [
+        k for k in STUFEN_LABELS
+        if st.session_state.get(f"{k}_stufen_checkbox")
+    ]
 
-    # 1. Insert order, get back the new row's id
-    order_data = {
-        "name": name,
-        "leistungskurs": lk_choice,
-        "lk_typ": lk_typ,
-        "grundkurs": gk_choice,
-        "gk_typ": gk_typ,
-        "mottowoche": selected_mottos,
-        "stufenfotos": selected_stufen,
-        "extra_photos": amount_uploaded_fotos,
-        "image_count": num_images,
-        "paid": extra_cost == 0,
-        "created_at": datetime.now().isoformat(),
-    }
+    if selected_stufen:
+        cols = st.columns(2)
+        for idx, s in enumerate(selected_stufen):
+            img_url = PREVIEW_IMAGES["stufenfotos"].get(s)
+            if img_url:
+                with cols[idx % 2]:
+                    st.image(img_url, caption=STUFEN_LABELS.get(s, str(s)))
 
-    order_response = requests.post(
-        f"{SUPABASE_URL}/rest/v1/orders",
-        json=order_data,
-        headers={**BASE_HEADERS, "Prefer": "return=representation"}
+    # Image upload
+    st.subheader("Eigene Fotos hochladen zum drucken (optional)")
+    st.write(f"{UPLOAD_PHOTO_PRICE:.2f}€ pro Bild")
+    uploaded_files = st.file_uploader(
+        "Fotos auswählen",
+        type=["jpg", "jpeg", "png", "webp"],
+        accept_multiple_files=True
     )
 
-    if order_response.status_code not in [200, 201]:
-        st.error(f"❌ Bestellung fehlgeschlagen: {order_response.text}")
-        st.stop()
+    if uploaded_files and len(uploaded_files) > MAX_IMAGES:
+        uploaded_files = uploaded_files[:MAX_IMAGES]
+        st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
 
-    order_id = order_response.json()[0]["id"]
+    amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
 
-    # 2. Upload each image and insert a row into order_images
     if uploaded_files:
-        with st.spinner("Bilder werden hochgeladen..."):
-            for i, file in enumerate(uploaded_files):
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
-                safe_name = name.replace(" ", "_")
-                ext = file.name.split(".")[-1]
-                filename = f"{safe_name}_{timestamp}.{ext}"
+        with st.expander("📸 Vorschau der hochgeladenen Fotos"):
+            cols = st.columns(2)
+            for idx, image in enumerate(uploaded_files):
+                with cols[idx % 2]:
+                    st.image(image, caption=image.name)
 
-                url = upload_image_to_supabase(file, filename)
-                if url is None:
-                    st.stop()
+    # Cost calculation
+    num_images = len(lk_typ) + len(gk_typ) + \
+        len(selected_mottos) + len(selected_stufen)
+    extra_cost = calculate_extra_cost(
+        num_images=num_images, extra_photos=amount_uploaded_fotos)
+    covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
 
-                img_data = {
-                    "order_id": order_id,
-                    "url": url,
-                    "filename": filename,
-                    "position": i + 1
-                }
-                img_response = requests.post(
-                    f"{SUPABASE_URL}/rest/v1/order_images",
-                    json=img_data,
-                    headers={**BASE_HEADERS, "Prefer": "return=minimal"}
-                )
-                if img_response.status_code not in [200, 201, 204]:
-                    st.error(
-                        f"❌ Bilddaten konnten nicht gespeichert werden: {img_response.text}")
-                    st.stop()
+    if extra_cost > 0:
+        st.warning(
+            f"⚠️ Zusatzkosten: **{extra_cost:.2f}€** - "
+            f"{num_images} Bilder ausgewählt, {covered_images} gratis"
+        )
+    else:
+        st.success("✅ Alle Bilder sind gratis!")
 
-    st.success("✅ Bestellung gespeichert!")
+    # Submit
+    if st.button("Absenden", type="primary", key="foto_submit"):
+        if not foto_name:
+            st.error("Bitte Namen eingeben.")
+            st.stop()
+        if extra_cost > 0:
+            st.session_state["foto_pending"] = True
+        else:
+            st.session_state["foto_pending"] = False
+            st.session_state["foto_confirmed"] = True
+
+    if st.session_state.get("foto_pending") and not st.session_state.get("foto_confirmed"):
+        st.warning(
+            f"⚠️ Du musst **{extra_cost:.2f}€** bezahlen. "
+            f"Deine Fotos werden nur gedruckt, wenn du bezahlt hast."
+        )
+        st.info("PayPal an: l-blu@outlook.de oder gib Levi das Geld persönlich.")
+        if st.button("✅ Bestätigen", type="primary", key="foto_confirm"):
+            st.session_state["foto_confirmed"] = True
+            st.rerun()
+        if st.button("❌ Abbrechen", key="foto_cancel"):
+            st.session_state["foto_pending"] = False
+            st.rerun()
+
+    if st.session_state.get("foto_confirmed"):
+        st.session_state["foto_pending"] = False
+        st.session_state["foto_confirmed"] = False
+
+        order_data = {
+            "name": foto_name,
+            "leistungskurs": lk_choice,
+            "lk_typ": lk_typ,
+            "grundkurs": gk_choice,
+            "gk_typ": gk_typ,
+            "mottowoche": selected_mottos,
+            "stufenfotos": selected_stufen,
+            "extra_photos": amount_uploaded_fotos,
+            "image_count": num_images,
+            "paid": extra_cost == 0,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        order_response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/orders",
+            json=order_data,
+            headers={**BASE_HEADERS, "Prefer": "return=representation"}
+        )
+
+        if order_response.status_code not in [200, 201]:
+            st.error(f"❌ Bestellung fehlgeschlagen: {order_response.text}")
+            st.stop()
+
+        order_id = order_response.json()[0]["id"]
+
+        if uploaded_files:
+            with st.spinner("Bilder werden hochgeladen..."):
+                for i, file in enumerate(uploaded_files):
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
+                    safe_name = foto_name.replace(" ", "_")
+                    ext = file.name.split(".")[-1]
+                    filename = f"{safe_name}_{timestamp}.{ext}"
+
+                    url = upload_image_to_supabase(file, filename)
+                    if url is None:
+                        st.stop()
+
+                    img_data = {
+                        "order_id": order_id,
+                        "url": url,
+                        "filename": filename,
+                        "position": i + 1
+                    }
+                    img_response = requests.post(
+                        f"{SUPABASE_URL}/rest/v1/order_images",
+                        json=img_data,
+                        headers={**BASE_HEADERS, "Prefer": "return=minimal"}
+                    )
+                    if img_response.status_code not in [200, 201, 204]:
+                        st.error(
+                            f"❌ Bilddaten konnten nicht gespeichert werden: {img_response.text}")
+                        st.stop()
+
+        st.success("✅ Bestellung gespeichert!")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 - HOODIE BESTELLUNG
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_merch:
+
+    merch_name = st.selectbox(
+        "Name auswählen", [""] + NAME_OPTIONS, key="merch_name")
+
+    st.subheader("Größe")
+    size = st.radio("Größe auswählen", SIZE_OPTIONS, horizontal=True)
+
+    st.subheader("Farbe")
+    color = st.radio("Farbe auswählen", COLOR_OPTIONS)
+
+    if st.button("Speichern", type="primary", key="merch_submit"):
+        if not merch_name:
+            st.error("Bitte Namen auswählen.")
+            st.stop()
+
+        order_data = {
+            "name": merch_name,
+            "size": size,
+            "color": color,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/abimerch",
+            json=order_data,
+            headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+        )
+
+        if response.status_code in [200, 201, 204]:
+            st.success(
+                f"✅ Bestellung gespeichert! ({merch_name} - {size} - {color})")
+        else:
+            st.error(f"❌ Fehler beim Speichern: {response.text}")
