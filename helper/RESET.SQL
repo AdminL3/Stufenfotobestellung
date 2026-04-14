@@ -1,17 +1,5 @@
--- ═══════════════════════════════════════════════════════════════════════════
--- FOTOBESTELLUNG – setup.sql
--- Run this in your Supabase SQL editor to initialize both databases.
---
--- Section 1 → fotobestellung DB  (orders, order_images, config, storage)
--- Section 2 → abimerch DB        (abimerch table)
---
--- Run Section 1 in your FOTOBESTELLUNG Supabase project.
--- Run Section 2 in your ABIMERCH Supabase project.
--- ═══════════════════════════════════════════════════════════════════════════
-
-
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║  SECTION 1 – FOTOBESTELLUNG DB                                           ║
+-- ║  FOTOBESTELLUNG                                                           ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
 
 -- ── RESET ─────────────────────────────────────────────────────────────────────
@@ -67,7 +55,10 @@ CREATE TABLE order_images (
 
 ALTER TABLE order_images DISABLE ROW LEVEL SECURITY;
 
--- ── CONFIG TABLE ──────────────────────────────────────────────────────────────
+
+-- ╔═══════════════════════════════════════════════════════════════════════════╗
+-- ║  CONFIG                                                                   ║
+-- ╚═══════════════════════════════════════════════════════════════════════════╝
 CREATE TABLE config (
     key    text PRIMARY KEY,
     value  text NOT NULL
@@ -93,12 +84,9 @@ GRANT SELECT ON TABLE config TO anon;
 GRANT UPDATE ON TABLE orders TO anon;
 GRANT UPDATE ON TABLE config TO anon;
 
-
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
--- ║  SECTION 2 – ABIMERCH DB                                                 ║
--- ║  Run this in your separate ABIMERCH Supabase project.                    ║
+-- ║  ABIMERCH                                                                 ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
-
 -- ── RESET ─────────────────────────────────────────────────────────────────────
 DROP TABLE IF EXISTS abimerch CASCADE;
 
