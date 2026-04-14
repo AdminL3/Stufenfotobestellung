@@ -44,7 +44,8 @@ with tab_foto:
     st.write("12,7 x 17,8cm - matt")
 
     # Name
-    foto_name = st.text_input("Name", key="foto_name")
+    foto_name = st.selectbox(
+        "Name auswählen", [""] + NAME_OPTIONS, key="foto_name")
 
     # Leistungskurs
     st.subheader("Leistungskurs Foto")
