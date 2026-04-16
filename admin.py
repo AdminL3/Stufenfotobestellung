@@ -365,41 +365,29 @@ with tab_hoodie:
         file_name="Hoodie_Bestellungen.pdf",
         mime="application/pdf",
     )
-    sub_hoodie_overview, sub_hoodie_orders = st.tabs(
-        ["Übersicht", "Bestellungen"])
+    hoodie_all, hoodie_overview = st.tabs(
+        ["Einzeln", "Gesamt"])
 
-    with sub_hoodie_overview:
+    with hoodie_all:
         if not merch_orders:
             st.info("Noch keine Hoodie-Bestellungen vorhanden.")
         else:
-
-            hoodie_map: dict[str, dict[str, list[str]]
-                             ] = defaultdict(lambda: defaultdict(list))
-            for o in merch_orders:
-                hoodie_map[o.get("color", "?")][o.get(
-                    "size", "?")].append(o.get("name", "?"))
-
-            for color in COLOR_OPTIONS:
-                if not hoodie_map[color]:
-                    continue
-                total = sum(len(names) for names in hoodie_map[color].values())
-                with st.expander(f"{color} - {total} Bestellungen"):
-                    for size in SIZE_OPTIONS:
-                        names = hoodie_map[color][size]
-                        if names:
-                            st.markdown(
-                                f"**{size}:** {'  ·  '.join(sorted(names))}")
+            st.markdown("#### Alle Bestellungen")
+            hoodie_rows = [
+                {"Name": o.get("name", "?"), "Größe": o.get(
+                    "size", "?"), "Farbe": o.get("color", "?")}
+                for o in sorted(merch_orders, key=lambda x: x.get("name", ""))
+            ]
+            st.dataframe(pd.DataFrame(hoodie_rows),
+                         use_container_width=True, hide_index=True)
 
 # Hoodie-Bestellungen — Detailübersicht
-    with sub_hoodie_orders:
+    with hoodie_overview:
         st.markdown("### Hoodie Bestellungen - Übersicht")
 
         if not merch_orders:
             st.info("Noch keine Hoodie-Bestellungen vorhanden.")
         else:
-            # Color × size matrix — fix: explicit dict[str, Any] avoids the Pylance
-            # error that arises from mixing str values ("Farbe") and int counts in
-            # the same row dict when the inner defaultdict is typed as int.
             color_size_matrix: dict[str, dict[str, int]
                                     ] = defaultdict(lambda: defaultdict(int))
             for o in merch_orders:
@@ -410,34 +398,14 @@ with tab_hoodie:
                 row: dict[str, Any] = {"Farbe": color}
                 for size in SIZE_OPTIONS:
                     row[size] = color_size_matrix[color][size]
-                row["Σ"] = sum(color_size_matrix[color].values())
+                row["Summe"] = sum(color_size_matrix[color].values())
                 matrix_data.append(row)
 
-            st.markdown("#### Übersicht nach Farbe und Größe")
             st.dataframe(pd.DataFrame(matrix_data),
                          use_container_width=True, hide_index=True)
 
-            st.divider()
 
-            st.markdown("#### Alle Bestellungen")
-            hoodie_rows = [
-                {"Name": o.get("name", "?"), "Größe": o.get(
-                    "size", "?"), "Farbe": o.get("color", "?")}
-                for o in sorted(merch_orders, key=lambda x: x.get("name", ""))
-            ]
-            st.dataframe(pd.DataFrame(hoodie_rows),
-                         use_container_width=True, hide_index=True)
-
-            st.divider()
-            st.download_button(
-                label="📥 Als PDF herunterladen",
-                data=generate_hoodie_pdf(merch_orders),
-                file_name="Hoodie_Bestellungen.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-                key="download_hoodies_tab",
-            )
-
+# region Extra
 with tab_extra:
     sub_teilnahme, sub_einstellungen, sub_berechnungen = st.tabs(
         ["Teilnahme", "Einstellungen", "Berechnungen"]
