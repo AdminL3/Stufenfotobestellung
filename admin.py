@@ -41,18 +41,11 @@ from helper.utils import (
     update_payment,
 )
 
-# ──────────────────────────────────────────────────────────────────────────────
-# PAGE CONFIG
-# ──────────────────────────────────────────────────────────────────────────────
-
 st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
 st.markdown(BADGE_CSS, unsafe_allow_html=True)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# SESSION STATE / DATA LOADING
-# ──────────────────────────────────────────────────────────────────────────────
-
+# region Session State
 def _load_all() -> None:
     st.session_state["orders"] = fetch_orders()
     st.session_state["images"] = fetch_images()
@@ -78,10 +71,7 @@ image_map = build_image_map(images)
 picture_map = build_picture_map(orders)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# HEADER
-# ──────────────────────────────────────────────────────────────────────────────
-
+# region Header
 st.markdown("## Bestellungsverwaltung")
 
 col_title, col_refresh = st.columns([9, 2])
@@ -97,17 +87,12 @@ tab_foto, tab_hoodie, tab_extra = st.tabs(
     ["Fotobestellung", "Hoodiebestellung", "Extra"]
 )
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# FOTOBESTELLUNG
-# ══════════════════════════════════════════════════════════════════════════════
-
+# region Fotobestellung
 with tab_foto:
     sub_bilder, sub_zahlungen, sub_uploads, sub_archiv, sub_abikasse = st.tabs(
         ["Bilder", "Zahlungen", "Uploads", "Archiv", "Abikasse"]
     )
 
-    # ── Bilder ────────────────────────────────────────────────────────────────
     with sub_bilder:
         if not picture_map:
             st.info("Noch keine Bestellungen vorhanden.")
@@ -125,7 +110,7 @@ with tab_foto:
                         unsafe_allow_html=True,
                     )
 
-    # ── Zahlungen ─────────────────────────────────────────────────────────────
+    # region Bezahlungen
     with sub_zahlungen:
         total_outstanding = 0.0
         total_paid = 0
@@ -235,7 +220,7 @@ with tab_foto:
                     st.session_state["archived_orders"] = fetch_archived_orders()
                     st.rerun()
 
-    # ── Uploads ───────────────────────────────────────────────────────────────
+    # region Uploads
     with sub_uploads:
         st.markdown("### Alle hochgeladenen Fotos")
 
@@ -272,7 +257,7 @@ with tab_foto:
                     st.image(url)
                     st.caption(f"{name} · #{pos}")
 
-    # ── Archiv ────────────────────────────────────────────────────────────────
+    # region Archiv
     with sub_archiv:
         st.markdown("### Archivierte Bestellungen")
 
@@ -326,7 +311,7 @@ with tab_foto:
                         )
                         st.rerun()
 
-    # ── Abikasse ──────────────────────────────────────────────────────────────
+    # region Abikasse
     with sub_abikasse:
         st.markdown("### Abikasse Abrechnung")
         st.caption(f"Gratis-Bilder bis {AMOUNT_OF_FREE_IMAGES} pro Person")
@@ -371,46 +356,41 @@ with tab_foto:
         )
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-# HOODIEBESTELLUNG
-# ══════════════════════════════════════════════════════════════════════════════
+# region Hoodiebestellung
 
 with tab_hoodie:
-    if not merch_orders:
-        st.info("Noch keine Hoodie-Bestellungen vorhanden.")
-    else:
-        st.download_button(
-            label="⬇️ PDF Hoodies",
-            data=generate_hoodie_pdf(merch_orders),
-            file_name="Hoodie_Bestellungen.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-
+    st.download_button(
+        label="⬇️ PDF Hoodies",
+        data=generate_hoodie_pdf(merch_orders),
+        file_name="Hoodie_Bestellungen.pdf",
+        mime="application/pdf",
+    )
     sub_hoodie_overview, sub_hoodie_orders = st.tabs(
         ["Übersicht", "Bestellungen"])
 
-    # ── Übersicht ─────────────────────────────────────────────────────────────
     with sub_hoodie_overview:
+        if not merch_orders:
+            st.info("Noch keine Hoodie-Bestellungen vorhanden.")
+        else:
 
-        hoodie_map: dict[str, dict[str, list[str]]
-                         ] = defaultdict(lambda: defaultdict(list))
-        for o in merch_orders:
-            hoodie_map[o.get("color", "?")][o.get(
-                "size", "?")].append(o.get("name", "?"))
+            hoodie_map: dict[str, dict[str, list[str]]
+                             ] = defaultdict(lambda: defaultdict(list))
+            for o in merch_orders:
+                hoodie_map[o.get("color", "?")][o.get(
+                    "size", "?")].append(o.get("name", "?"))
 
-        for color in COLOR_OPTIONS:
-            if not hoodie_map[color]:
-                continue
-            total = sum(len(names) for names in hoodie_map[color].values())
-            with st.expander(f"{color} - {total} Bestellungen"):
-                for size in SIZE_OPTIONS:
-                    names = hoodie_map[color][size]
-                    if names:
-                        st.markdown(
-                            f"**{size}:** {'  ·  '.join(sorted(names))}")
+            for color in COLOR_OPTIONS:
+                if not hoodie_map[color]:
+                    continue
+                total = sum(len(names) for names in hoodie_map[color].values())
+                with st.expander(f"{color} - {total} Bestellungen"):
+                    for size in SIZE_OPTIONS:
+                        names = hoodie_map[color][size]
+                        if names:
+                            st.markdown(
+                                f"**{size}:** {'  ·  '.join(sorted(names))}")
 
-    # ── Bestellungen ──────────────────────────────────────────────────────────
+# Hoodie-Bestellungen — Detailübersicht
     with sub_hoodie_orders:
         st.markdown("### Hoodie Bestellungen - Übersicht")
 
@@ -448,10 +428,15 @@ with tab_hoodie:
             st.dataframe(pd.DataFrame(hoodie_rows),
                          use_container_width=True, hide_index=True)
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# EXTRA
-# ══════════════════════════════════════════════════════════════════════════════
+            st.divider()
+            st.download_button(
+                label="📥 Als PDF herunterladen",
+                data=generate_hoodie_pdf(merch_orders),
+                file_name="Hoodie_Bestellungen.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+                key="download_hoodies_tab",
+            )
 
 with tab_extra:
     sub_teilnahme, sub_einstellungen, sub_berechnungen = st.tabs(
@@ -461,7 +446,7 @@ with tab_extra:
     foto_names_submitted = {o.get("name") for o in orders}
     merch_names_submitted = {o.get("name") for o in merch_orders}
 
-    # ── Teilnahme ─────────────────────────────────────────────────────────────
+    # region Teilnahme
     with sub_teilnahme:
         st.download_button(
             label="⬇️ PDF Teilnahme",
@@ -522,7 +507,7 @@ with tab_extra:
                     st.markdown(
                         f'<span style="{TAG_UNPAID}">{name}</span>', unsafe_allow_html=True)
 
-    # ── Einstellungen ─────────────────────────────────────────────────────────
+    # region Einstellungen
     with sub_einstellungen:
         st.markdown("### Preise & Einstellungen")
 
@@ -562,7 +547,7 @@ with tab_extra:
                 else:
                     st.error("❌ Fehler beim Speichern — bitte Logs prüfen.")
 
-    # ── Berechnungen ──────────────────────────────────────────────────────────
+    # region Berechnungen
     with sub_berechnungen:
         total_standard = 0
         total_mottowoche = 0
