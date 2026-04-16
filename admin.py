@@ -28,6 +28,7 @@ from helper.utils import (
     generate_pdf,
     generate_abikasse_pdf,
     generate_hoodie_pdf,
+    generate_teilnahme_pdf,
     create_zip_all,
     fetch_orders,
     fetch_images,
@@ -72,22 +73,20 @@ with col_refresh:
         st.session_state["merch_orders"] = fetch_merch_orders()
         st.rerun()
 
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "Bildübersicht", "Zahlungen", "Uploads",
-    "Einstellungen", "Berechnungen", "Archiv",
-    "Teilnahme", "Export"
+Bilder, Zahlungen, Uploads, Archiv, Hoodies, Teilnahme, Export, Einstellungen, Berechnungen = st.tabs([
+    "Bilder", "Zahlungen", "Uploads", "Archiv", "Hoodies", "Teilnahme", "Export", "Einstellungen", "Berechnungen"
 ])
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 1 – PICTURE OVERVIEW
+# TAB 1 - BILDER
 # ═══════════════════════════════════════════════════════════════════
-with tab1:
+with Bilder:
     if not picture_map:
         st.info("Noch keine Bestellungen vorhanden.")
     else:
         for key, entries in picture_map.items():
-            title = f"{format_label(key)} – {len(entries)} Bestellungen"
+            title = f"{format_label(key)} - {len(entries)} Bestellungen"
             with st.expander(title):
                 tags = [
                     f'<span style="{TAG_PAID if paid else TAG_UNPAID}">{name}</span>'
@@ -102,9 +101,9 @@ with tab1:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 2 – PAYMENTS
+# TAB 2 - ZAHLUNGEN
 # ═══════════════════════════════════════════════════════════════════
-with tab2:
+with Zahlungen:
     total_outstanding = 0.0
     total_paid_orders = 0
     total_unpaid_orders = 0
@@ -225,9 +224,9 @@ with tab2:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 3 – UPLOADS
+# TAB 3 - UPLOADS
 # ═══════════════════════════════════════════════════════════════════
-with tab3:
+with Uploads:
     st.markdown("### Alle hochgeladenen Fotos")
 
     order_lookup = {order["id"]: order.get("name", "?") for order in orders}
@@ -265,9 +264,223 @@ with tab3:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 4 – SETTINGS
+# TAB 4 - ARCHIV
 # ═══════════════════════════════════════════════════════════════════
-with tab4:
+with Archiv:
+    st.markdown("### Archivierte Bestellungen")
+
+    if not archived_orders:
+        st.info("Keine archivierten Bestellungen.")
+    else:
+        st.caption(f"{len(archived_orders)} archivierte Bestellungen")
+
+        for order in archived_orders:
+            order_id = order["id"]
+            name = order.get("name", "?")
+            extra_cost = calculate_extra_cost(order=order)
+            is_paid = order.get("paid", False)
+            status = (
+                "🟦 GRATIS" if extra_cost == 0 else
+                "✅ BEZAHLT" if is_paid else
+                f"❌ {extra_cost:.2f}€"
+            )
+
+            with st.expander(f"{name}: {status}"):
+                lk_typ = order.get("lk_typ") or []
+                gk_typ = order.get("gk_typ") or []
+                kurs_pics = (
+                    [f"{order.get('leistungskurs', '')} {t}" for t in lk_typ] +
+                    [f"{order.get('grundkurs', '')} {t}" for t in gk_typ]
+                )
+                if kurs_pics:
+                    st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))
+
+                mottos = [MOTTO_LABELS.get(m, f"Motto {m}") for m in (
+                    order.get("mottowoche") or [])]
+                if mottos:
+                    st.write("**Mottowoche:** " + "  ·  ".join(mottos))
+
+                stufen = [STUFEN_LABELS.get(s, f"Stufen {s}") for s in (
+                    order.get("stufenfotos") or [])]
+                if stufen:
+                    st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
+
+                extra_photos = order.get("extra_photos") or 0
+                if extra_photos > 0:
+                    st.write(f"**Eigene Fotos:** {extra_photos}x")
+
+                st.markdown("")
+                if st.button("↩️ Wiederherstellen", key=f"unarchive_{order_id}"):
+                    archive_order(order_id, False)
+                    st.session_state["orders"] = fetch_orders()
+                    st.session_state["archived_orders"] = fetch_archived_orders()
+                    st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 5 - HOODIES
+# ═══════════════════════════════════════════════════════════════════
+with Hoodies:
+    if not merch_orders:
+        st.info("Noch keine Hoodie-Bestellungen vorhanden.")
+    else:
+        # Build organization by color and size
+        hoodie_map = defaultdict(lambda: defaultdict(list))
+        for o in merch_orders:
+            color = o.get("color", "?")
+            size = o.get("size", "?")
+            name = o.get("name", "?")
+            hoodie_map[color][size].append(name)
+
+        for color in COLOR_OPTIONS:
+            if not hoodie_map[color]:
+                continue
+
+            color_title = f"{color} - {sum(len(names) for names in hoodie_map[color].values())} Bestellungen"
+            with st.expander(color_title):
+                for size in SIZE_OPTIONS:
+                    names = hoodie_map[color][size]
+                    if names:
+                        sizes_str = "  ·  ".join(sorted(names))
+                        st.markdown(f"**{size}:** {sizes_str}")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 6 - TEILNAHME
+# ═══════════════════════════════════════════════════════════════════
+with Teilnahme:
+    foto_names_submitted = {o.get("name") for o in orders}
+    merch_names_submitted = {o.get("name") for o in merch_orders}
+
+    # ── Foto participation ────────────────────────────────
+    st.markdown("### 📸 Fotobestellung")
+    foto_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in foto_names_submitted])
+    foto_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in foto_names_submitted])
+
+    fc1, fc2, fc3 = st.columns(3)
+    fc1.metric("Bestellt", len(foto_submitted))
+    fc2.metric("Ausstehend", len(foto_missing))
+    fc3.metric("Gesamt", len(NAME_OPTIONS))
+
+    col_done, col_missing = st.columns(2)
+
+    with col_done:
+        st.markdown(f"**✅ Abgegeben ({len(foto_submitted)})**")
+        for name in foto_submitted:
+            st.markdown(
+                f'<span style="{TAG_PAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    with col_missing:
+        st.markdown(f"**⏳ Noch nicht bestellt ({len(foto_missing)})**")
+        for name in foto_missing:
+            st.markdown(
+                f'<span style="{TAG_UNPAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    st.divider()
+
+    # ── Hoodie participation ──────────────────────────────
+    st.markdown("### 🧥 Hoodie Bestellung")
+    merch_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in merch_names_submitted])
+    merch_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in merch_names_submitted])
+
+    mc1, mc2, mc3 = st.columns(3)
+    mc1.metric("Bestellt", len(merch_submitted))
+    mc2.metric("Ausstehend", len(merch_missing))
+    mc3.metric("Gesamt", len(NAME_OPTIONS))
+
+    col_done2, col_missing2 = st.columns(2)
+
+    with col_done2:
+        st.markdown(f"**✅ Abgegeben ({len(merch_submitted)})**")
+        for name in merch_submitted:
+            st.markdown(
+                f'<span style="{TAG_PAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    with col_missing2:
+        st.markdown(f"**⏳ Noch nicht bestellt ({len(merch_missing)})**")
+        for name in merch_missing:
+            st.markdown(
+                f'<span style="{TAG_UNPAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 7 - EXPORT
+# ═══════════════════════════════════════════════════════════════════
+with Export:
+    st.markdown("### Exporte")
+
+    st.markdown("#### Fotobestellung")
+
+    ex1, ex2 = st.columns(2)
+
+    with ex1:
+        st.markdown("**Bildübersicht**")
+        st.caption("Alle Fototypen mit Namen und Zahlungsstatus")
+        st.download_button(
+            label="⬇️ PDF Bildübersicht",
+            data=generate_pdf(picture_map),
+            file_name="Bilduebersicht.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    with ex2:
+        st.markdown("**Abikasse Abrechnung**")
+        st.caption(
+            f"Alle Gratis-Bilder (bis {AMOUNT_OF_FREE_IMAGES} pro Person), die die Abikasse zahlt")
+        st.download_button(
+            label="⬇️ PDF Abikasse",
+            data=generate_abikasse_pdf(orders),
+            file_name="Abikasse_Abrechnung.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    st.divider()
+
+    st.markdown("#### Hoodie Bestellung")
+    st.caption("Alle Hoodie-Bestellungen mit Größen- und Farb-Übersicht")
+
+    if not merch_orders:
+        st.info("Noch keine Hoodie-Bestellungen vorhanden.")
+    else:
+        st.download_button(
+            label="⬇️ PDF Hoodies",
+            data=generate_hoodie_pdf(merch_orders),
+            file_name="Hoodie_Bestellungen.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    st.divider()
+
+    st.markdown("#### Teilnahme")
+    st.caption("Wer hat Fotos bestellt und wer Hoodies?")
+    st.download_button(
+        label="⬇️ PDF Teilnahme",
+        data=generate_teilnahme_pdf(orders, merch_orders),
+        file_name="Teilnahme_Uebersicht.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 8 - EINSTELLUNGEN
+# ═══════════════════════════════════════════════════════════════════
+with Einstellungen:
     st.markdown("### Preise & Einstellungen")
 
     from helper.config import load_config, CONFIG_URL
@@ -307,9 +520,9 @@ with tab4:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 5 – CALCULATIONS
+# TAB 9 - BERECHNUNGEN
 # ═══════════════════════════════════════════════════════════════════
-with tab5:
+with Berechnungen:
     total_standard = 0
     total_mottowoche = 0
     total_stufenfotos = 0
@@ -441,204 +654,3 @@ with tab5:
         p2.metric("Druckkosten",   f"{PRINTING_COST:.2f}€")
         p3.metric("Marge", f"{margin_upload:.2f}€",
                   delta=f"{margin_pct_upload:.0f}%", delta_color="normal")
-
-
-# ═══════════════════════════════════════════════════════════════════
-# TAB 6 – ARCHIVE
-# ═══════════════════════════════════════════════════════════════════
-with tab6:
-    st.markdown("### Archivierte Bestellungen")
-
-    if not archived_orders:
-        st.info("Keine archivierten Bestellungen.")
-    else:
-        st.caption(f"{len(archived_orders)} archivierte Bestellungen")
-
-        for order in archived_orders:
-            order_id = order["id"]
-            name = order.get("name", "?")
-            extra_cost = calculate_extra_cost(order=order)
-            is_paid = order.get("paid", False)
-            status = (
-                "🟦 GRATIS" if extra_cost == 0 else
-                "✅ BEZAHLT" if is_paid else
-                f"❌ {extra_cost:.2f}€"
-            )
-
-            with st.expander(f"{name}: {status}"):
-                lk_typ = order.get("lk_typ") or []
-                gk_typ = order.get("gk_typ") or []
-                kurs_pics = (
-                    [f"{order.get('leistungskurs', '')} {t}" for t in lk_typ] +
-                    [f"{order.get('grundkurs', '')} {t}" for t in gk_typ]
-                )
-                if kurs_pics:
-                    st.write("**Kursfotos:** " + "  ·  ".join(kurs_pics))
-
-                mottos = [MOTTO_LABELS.get(m, f"Motto {m}") for m in (
-                    order.get("mottowoche") or [])]
-                if mottos:
-                    st.write("**Mottowoche:** " + "  ·  ".join(mottos))
-
-                stufen = [STUFEN_LABELS.get(s, f"Stufen {s}") for s in (
-                    order.get("stufenfotos") or [])]
-                if stufen:
-                    st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
-
-                extra_photos = order.get("extra_photos") or 0
-                if extra_photos > 0:
-                    st.write(f"**Eigene Fotos:** {extra_photos}x")
-
-                st.markdown("")
-                if st.button("↩️ Wiederherstellen", key=f"unarchive_{order_id}"):
-                    archive_order(order_id, False)
-                    st.session_state["orders"] = fetch_orders()
-                    st.session_state["archived_orders"] = fetch_archived_orders()
-                    st.rerun()
-
-
-# ═══════════════════════════════════════════════════════════════════
-# TAB 7 – TEILNAHME (participation tracker)
-# ═══════════════════════════════════════════════════════════════════
-with tab7:
-    foto_names_submitted = {o.get("name") for o in orders}
-    merch_names_submitted = {o.get("name") for o in merch_orders}
-
-    # ── Foto participation ────────────────────────────────
-    st.markdown("### 📸 Fotobestellung")
-    foto_submitted = sorted(
-        [n for n in NAME_OPTIONS if n in foto_names_submitted])
-    foto_missing = sorted(
-        [n for n in NAME_OPTIONS if n not in foto_names_submitted])
-
-    fc1, fc2, fc3 = st.columns(3)
-    fc1.metric("Bestellt", len(foto_submitted))
-    fc2.metric("Ausstehend", len(foto_missing))
-    fc3.metric("Gesamt", len(NAME_OPTIONS))
-
-    col_done, col_missing = st.columns(2)
-
-    with col_done:
-        st.markdown(f"**✅ Abgegeben ({len(foto_submitted)})**")
-        for name in foto_submitted:
-            st.markdown(
-                f'<span style="{TAG_PAID}">{name}</span>',
-                unsafe_allow_html=True
-            )
-
-    with col_missing:
-        st.markdown(f"**⏳ Noch nicht bestellt ({len(foto_missing)})**")
-        for name in foto_missing:
-            st.markdown(
-                f'<span style="{TAG_UNPAID}">{name}</span>',
-                unsafe_allow_html=True
-            )
-
-    st.divider()
-
-    # ── Hoodie participation ──────────────────────────────
-    st.markdown("### 🧥 Hoodie Bestellung")
-    merch_submitted = sorted(
-        [n for n in NAME_OPTIONS if n in merch_names_submitted])
-    merch_missing = sorted(
-        [n for n in NAME_OPTIONS if n not in merch_names_submitted])
-
-    mc1, mc2, mc3 = st.columns(3)
-    mc1.metric("Bestellt", len(merch_submitted))
-    mc2.metric("Ausstehend", len(merch_missing))
-    mc3.metric("Gesamt", len(NAME_OPTIONS))
-
-    col_done2, col_missing2 = st.columns(2)
-
-    with col_done2:
-        st.markdown(f"**✅ Abgegeben ({len(merch_submitted)})**")
-        for name in merch_submitted:
-            st.markdown(
-                f'<span style="{TAG_PAID}">{name}</span>',
-                unsafe_allow_html=True
-            )
-
-    with col_missing2:
-        st.markdown(f"**⏳ Noch nicht bestellt ({len(merch_missing)})**")
-        for name in merch_missing:
-            st.markdown(
-                f'<span style="{TAG_UNPAID}">{name}</span>',
-                unsafe_allow_html=True
-            )
-
-    st.divider()
-
-    # ── Hoodie size & color summary ───────────────────────
-    st.markdown("### 📊 Hoodie Größen & Farben")
-
-    size_counts = defaultdict(int)
-    color_counts = defaultdict(int)
-    for o in merch_orders:
-        size_counts[o.get("size", "?")] += 1
-        color_counts[o.get("color", "?")] += 1
-
-    sz_col, cl_col = st.columns(2)
-
-    with sz_col:
-        st.markdown("**Größen**")
-        for size in SIZE_OPTIONS:
-            count = size_counts.get(size, 0)
-            bar = "█" * count + "░" * max(0, 10 - count)
-            st.markdown(f"`{size:<4}` {bar} **{count}**")
-
-    with cl_col:
-        st.markdown("**Farben**")
-        for color in COLOR_OPTIONS:
-            count = color_counts.get(color, 0)
-            bar = "█" * count + "░" * max(0, 10 - count)
-            st.markdown(f"`{color:<20}` {bar} **{count}**")
-
-
-# ═══════════════════════════════════════════════════════════════════
-# TAB 8 – EXPORT
-# ═══════════════════════════════════════════════════════════════════
-with tab8:
-    st.markdown("### Exporte")
-
-    st.markdown("#### 📸 Fotobestellung")
-
-    ex1, ex2 = st.columns(2)
-
-    with ex1:
-        st.markdown("**A – Bildübersicht**")
-        st.caption("Alle Fototypen mit Namen und Zahlungsstatus")
-        st.download_button(
-            label="⬇️ PDF Bildübersicht",
-            data=generate_pdf(picture_map),
-            file_name="Bilduebersicht.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-
-    with ex2:
-        st.markdown("**B – Abikasse Abrechnung**")
-        st.caption(
-            f"Alle Gratis-Bilder (bis {AMOUNT_OF_FREE_IMAGES} pro Person), die die Abikasse zahlt")
-        st.download_button(
-            label="⬇️ PDF Abikasse",
-            data=generate_abikasse_pdf(orders),
-            file_name="Abikasse_Abrechnung.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
-
-    st.divider()
-
-    st.markdown("#### 🧥 Hoodie Bestellung")
-    st.caption("Alle Hoodie-Bestellungen mit Größen- und Farb-Übersicht")
-
-    if not merch_orders:
-        st.info("Noch keine Hoodie-Bestellungen vorhanden.")
-    else:
-        st.download_button(
-            label="⬇️ PDF Hoodies",
-            data=generate_hoodie_pdf(merch_orders),
-            file_name="Hoodie_Bestellungen.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )

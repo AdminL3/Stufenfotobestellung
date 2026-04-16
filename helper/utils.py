@@ -113,7 +113,6 @@ def _base_styles():
     return title_style, subtitle_style, heading_style, normal_style
 
 
-# ── PDF A: PICTURE OVERVIEW ───────────────────────────────────────────────────
 def generate_pdf(picture_map):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -122,18 +121,13 @@ def generate_pdf(picture_map):
     title_style, subtitle_style, heading_style, normal_style = _base_styles()
     story = []
 
-    story.append(Paragraph("Fotobestellung – Bildübersicht", title_style))
-    story.append(Paragraph(
-        f"Erstellt am {datetime.now().strftime('%d.%m.%Y um %H:%M')} Uhr  ·  "
-        f"{sum(len(v) for v in picture_map.values())} Bestellungen",
-        subtitle_style
-    ))
+    story.append(Paragraph("Fotobestellung - Bildübersicht", title_style))
     story.append(HRFlowable(width="100%", thickness=1,
                  color=colors.HexColor("#dddddd"), spaceAfter=16))
 
     for label, entries in picture_map.items():
         story.append(Paragraph(
-            f"{format_label(label)}  –  {len(entries)} Bestellungen", heading_style))
+            f"{format_label(label)}  -  {len(entries)} Bestellungen", heading_style))
 
         paid_names = [n for n, paid in entries if paid]
         unpaid_names = [n for n, paid in entries if not paid]
@@ -172,12 +166,7 @@ def generate_pdf(picture_map):
     return buffer.read()
 
 
-# ── PDF B: ABIKASSE REPORT ────────────────────────────────────────────────────
 def generate_abikasse_pdf(orders):
-    """
-    Exports the free images that the Abikasse has to pay for.
-    One row per order that has free images, plus a totals section.
-    """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=2*cm, rightMargin=2*cm,
@@ -191,30 +180,22 @@ def generate_abikasse_pdf(orders):
                                  fontSize=10, fontName="Helvetica-Bold")
 
     story = []
-    story.append(Paragraph("Abikasse – Gratis-Bilder Abrechnung", title_style))
-    story.append(Paragraph(
-        f"Erstellt am {datetime.now().strftime('%d.%m.%Y um %H:%M')} Uhr  ·  "
-        f"Preis pro Bild: {NORMAL_IMAGE_PRICE:.2f}€  ·  Druckkosten: {PRINTING_COST:.2f}€",
-        subtitle_style
-    ))
+    story.append(Paragraph("Abikasse - Gratis-Bilder Abrechnung", title_style))
     story.append(HRFlowable(width="100%", thickness=1,
                  color=colors.HexColor("#dddddd"), spaceAfter=16))
 
     # Table header
-    col_widths = [5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm]
+    col_widths = [5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm]
     header_row = [
         Paragraph("Name", header_style),
         Paragraph("Bilder\ngesamt", header_style),
         Paragraph(f"Gratis\n(max {AMOUNT_OF_FREE_IMAGES})", header_style),
-        Paragraph("Einnahmen\n(Abikasse)", header_style),
-        Paragraph("Druck-\nkosten", header_style),
-        Paragraph("Abikasse\nzahlt", header_style),
+        Paragraph("Kosten Abikasse", header_style),
     ]
 
     rows = [header_row]
     total_free_images = 0
-    total_revenue = 0.0
-    total_print_cost = 0.0
+    total_cost = 0.0
 
     for order in orders:
         num_images = order.get("image_count") or 0
@@ -222,22 +203,15 @@ def generate_abikasse_pdf(orders):
         if free_images == 0:
             continue
         name = order.get("name", "?")
-        rev = free_images * NORMAL_IMAGE_PRICE
-        cost = free_images * PRINTING_COST
-        # what abikasse actually pays (the price they reimburse)
-        net = rev - cost
-
+        cost = free_images * NORMAL_IMAGE_PRICE
         total_free_images += free_images
-        total_revenue += rev
-        total_print_cost += cost
+        total_cost += cost
 
         rows.append([
             Paragraph(name, cell_style),
             Paragraph(str(num_images), cell_style),
             Paragraph(str(free_images), cell_style),
-            Paragraph(f"{rev:.2f}€", cell_style),
-            Paragraph(f"{cost:.2f}€", cell_style),
-            Paragraph(f"{net:.2f}€", cell_style),
+            Paragraph(f"{cost:.2f}€", cell_style)
         ])
 
     # Totals row
@@ -245,9 +219,7 @@ def generate_abikasse_pdf(orders):
         Paragraph("GESAMT", total_style),
         Paragraph("", cell_style),
         Paragraph(str(total_free_images), total_style),
-        Paragraph(f"{total_revenue:.2f}€", total_style),
-        Paragraph(f"{total_print_cost:.2f}€", total_style),
-        Paragraph(f"{total_revenue - total_print_cost:.2f}€", total_style),
+        Paragraph(f"{total_cost:.2f}€", total_style),
     ])
 
     t = Table(rows, colWidths=col_widths)
@@ -267,26 +239,12 @@ def generate_abikasse_pdf(orders):
     ]))
     story.append(t)
 
-    story.append(Spacer(1, 20))
-    net_total = total_revenue - total_print_cost
-    story.append(Paragraph(
-        f"Zusammenfassung: {total_free_images} Gratis-Bilder · "
-        f"Einnahmen {total_revenue:.2f}€ · Druckkosten {total_print_cost:.2f}€ · "
-        f"Abikasse zahlt netto: <b>{net_total:.2f}€</b>",
-        ParagraphStyle("Summary", parent=normal_style, fontSize=10,
-                       textColor=colors.HexColor("#1a2e1a"))
-    ))
-
     doc.build(story)
     buffer.seek(0)
     return buffer.read()
 
 
-# ── PDF C: HOODIE REPORT ──────────────────────────────────────────────────────
 def generate_hoodie_pdf(merch_orders):
-    """
-    Exports the hoodie orders: full list + summary by size and color.
-    """
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4,
                             leftMargin=2*cm, rightMargin=2*cm,
@@ -297,87 +255,55 @@ def generate_hoodie_pdf(merch_orders):
     cell_style = ParagraphStyle("Cell", parent=normal_style, fontSize=9)
 
     story = []
-    story.append(Paragraph("Hoodie Bestellungen – Übersicht", title_style))
-    story.append(Paragraph(
-        f"Erstellt am {datetime.now().strftime('%d.%m.%Y um %H:%M')} Uhr  ·  "
-        f"{len(merch_orders)} Bestellungen",
-        subtitle_style
-    ))
+    story.append(Paragraph("Hoodie Bestellungen - Übersicht", title_style))
+
     story.append(HRFlowable(width="100%", thickness=1,
                  color=colors.HexColor("#dddddd"), spaceAfter=16))
 
-    # ── Summary: sizes ───────────────────────────────────
-    story.append(Paragraph("Größen", heading_style))
-    size_counts = defaultdict(int)
+    # ── Color x Size Matrix ───────────────────────────────
+    story.append(Paragraph("Farben x Größen Übersicht", heading_style))
+
+    # Build color x size matrix
+    color_size_matrix = defaultdict(lambda: defaultdict(int))
     for o in merch_orders:
-        size_counts[o.get("size", "?")] += 1
+        color = o.get("color", "?")
+        size = o.get("size", "?")
+        color_size_matrix[color][size] += 1
 
-    size_rows = [[Paragraph("Größe", header_style),
-                  Paragraph("Anzahl", header_style)]]
-    for size in SIZE_OPTIONS:
-        count = size_counts.get(size, 0)
-        size_rows.append([
-            Paragraph(size, cell_style),
-            Paragraph(str(count), cell_style),
-        ])
-    size_rows.append([
-        Paragraph("GESAMT", ParagraphStyle(
-            "T", parent=cell_style, fontName="Helvetica-Bold")),
-        Paragraph(str(len(merch_orders)), ParagraphStyle(
-            "T", parent=cell_style, fontName="Helvetica-Bold")),
-    ])
+    # Create matrix table with size headers
+    matrix_rows = [[Paragraph("Farbe", header_style)] +
+                   [Paragraph(size, header_style) for size in SIZE_OPTIONS] +
+                   [Paragraph("Σ", header_style)]]
 
-    t_size = Table(size_rows, colWidths=[4*cm, 4*cm])
-    t_size.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -2),
-         [colors.HexColor("#f9f9f9"), colors.white]),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eaf4ee")),
-        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.HexColor("#1a7a5a")),
-        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.append(t_size)
-    story.append(Spacer(1, 14))
-
-    # ── Summary: colors ───────────────────────────────────
-    story.append(Paragraph("Farben", heading_style))
-    color_counts = defaultdict(int)
-    for o in merch_orders:
-        color_counts[o.get("color", "?")] += 1
-
-    color_rows = [[Paragraph("Farbe", header_style),
-                   Paragraph("Anzahl", header_style)]]
+    total_per_size = defaultdict(int)
     for color in COLOR_OPTIONS:
-        count = color_counts.get(color, 0)
-        color_rows.append([
-            Paragraph(color, cell_style),
-            Paragraph(str(count), cell_style),
-        ])
-    color_rows.append([
-        Paragraph("GESAMT", ParagraphStyle(
-            "T", parent=cell_style, fontName="Helvetica-Bold")),
-        Paragraph(str(len(merch_orders)), ParagraphStyle(
-            "T", parent=cell_style, fontName="Helvetica-Bold")),
-    ])
+        row = [Paragraph(color, cell_style)]
+        color_total = 0
+        for size in SIZE_OPTIONS:
+            count = color_size_matrix[color][size]
+            row.append(Paragraph(str(count) if count > 0 else "-", cell_style))
+            total_per_size[size] += count
+            color_total += count
+        row.append(Paragraph(str(color_total) if color_total > 0 else "-",
+                             ParagraphStyle("T", parent=cell_style, fontName="Helvetica-Bold")))
+        matrix_rows.append(row)
 
-    t_color = Table(color_rows, colWidths=[4*cm, 4*cm])
-    t_color.setStyle(TableStyle([
+    col_widths = [2.8*cm] + [1.2*cm] * len(SIZE_OPTIONS) + [1.2*cm]
+    t_matrix = Table(matrix_rows, colWidths=col_widths)
+    t_matrix.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
         ("ROWBACKGROUNDS", (0, 1), (-1, -2),
          [colors.HexColor("#f9f9f9"), colors.white]),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#eaf4ee")),
-        ("LINEABOVE", (0, -1), (-1, -1), 1, colors.HexColor("#1a7a5a")),
+        ("BACKGROUND", (-1, 1), (-1, -1), colors.HexColor("#eaf4ee")),
         ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("ALIGNMENT", (0, 0), (-1, -1), "CENTER"),
     ]))
-    story.append(t_color)
+    story.append(t_matrix)
     story.append(Spacer(1, 20))
 
     # ── Full order list ───────────────────────────────────
@@ -386,15 +312,12 @@ def generate_hoodie_pdf(merch_orders):
         Paragraph("Name", header_style),
         Paragraph("Größe", header_style),
         Paragraph("Farbe", header_style),
-        Paragraph("Bestellt am", header_style),
     ]]
     for o in sorted(merch_orders, key=lambda x: x.get("name", "")):
-        created = o.get("created_at", "")[:10]
         list_rows.append([
             Paragraph(o.get("name", "?"), cell_style),
             Paragraph(o.get("size", "?"), cell_style),
             Paragraph(o.get("color", "?"), cell_style),
-            Paragraph(created, cell_style),
         ])
 
     t_list = Table(list_rows, colWidths=[5.5*cm, 2.5*cm, 4*cm, 4.5*cm])
@@ -415,7 +338,118 @@ def generate_hoodie_pdf(merch_orders):
     return buffer.read()
 
 
-# ── SUPABASE HELPERS ──────────────────────────────────────────────────────────
+def generate_teilnahme_pdf(orders, merch_orders):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    title_style, subtitle_style, heading_style, normal_style = _base_styles()
+    header_style = ParagraphStyle("Header", parent=normal_style,
+                                  fontSize=9, textColor=colors.white, fontName="Helvetica-Bold")
+    cell_style = ParagraphStyle("Cell", parent=normal_style, fontSize=9)
+
+    foto_names_submitted = {o.get("name") for o in orders}
+    merch_names_submitted = {o.get("name") for o in merch_orders}
+
+    story = []
+    story.append(Paragraph("Übersicht", title_style))
+
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    # ── Foto participation table ───────────────────────────────
+    story.append(Paragraph("Fotobestellung", heading_style))
+
+    foto_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in foto_names_submitted])
+    foto_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in foto_names_submitted])
+
+    foto_rows = [[
+        Paragraph("Bestellt", header_style),
+        Paragraph("Noch nicht bestellt", header_style),
+    ]]
+
+    max_rows = max(len(foto_submitted), len(foto_missing))
+    for i in range(max_rows):
+        submitted_name = Paragraph(
+            foto_submitted[i] if i < len(foto_submitted) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#1a7a5a"))
+        ) if i < len(foto_submitted) else Paragraph("", cell_style)
+
+        missing_name = Paragraph(
+            foto_missing[i] if i < len(foto_missing) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#cc3333"))
+        ) if i < len(foto_missing) else Paragraph("", cell_style)
+
+        foto_rows.append([submitted_name, missing_name])
+
+    t_foto = Table(foto_rows, colWidths=[8*cm, 8*cm])
+    t_foto.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.HexColor("#f9f9f9"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(t_foto)
+
+    story.append(Spacer(1, 20))
+
+    # ── Hoodie participation table ───────────────────────────────
+    story.append(Paragraph("Hoodie Bestellung", heading_style))
+
+    merch_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in merch_names_submitted])
+    merch_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in merch_names_submitted])
+
+    merch_rows = [[
+        Paragraph("Bestellt", header_style),
+        Paragraph("Noch nicht bestellt", header_style),
+    ]]
+
+    max_rows = max(len(merch_submitted), len(merch_missing))
+    for i in range(max_rows):
+        submitted_name = Paragraph(
+            merch_submitted[i] if i < len(merch_submitted) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#1a7a5a"))
+        ) if i < len(merch_submitted) else Paragraph("", cell_style)
+
+        missing_name = Paragraph(
+            merch_missing[i] if i < len(merch_missing) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#cc3333"))
+        ) if i < len(merch_missing) else Paragraph("", cell_style)
+
+        merch_rows.append([submitted_name, missing_name])
+
+    t_merch = Table(merch_rows, colWidths=[8*cm, 8*cm])
+    t_merch.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.HexColor("#f9f9f9"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(t_merch)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
+
 def create_zip_all(images_list, order_lookup):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as z:
