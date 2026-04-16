@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from collections import defaultdict
 from helper.config import (
     NORMAL_IMAGE_PRICE,
     AMOUNT_OF_FREE_IMAGES,
@@ -9,6 +10,9 @@ from helper.config import (
 from helper.constants import (
     MOTTO_LABELS,
     STUFEN_LABELS,
+    NAME_OPTIONS,
+    SIZE_OPTIONS,
+    COLOR_OPTIONS,
     BADGE_CSS,
     TAG_PAID,
     TAG_UNPAID,
@@ -22,10 +26,13 @@ from helper.utils import (
     build_image_map,
     build_picture_map,
     generate_pdf,
+    generate_abikasse_pdf,
+    generate_hoodie_pdf,
     create_zip_all,
     fetch_orders,
     fetch_images,
     fetch_archived_orders,
+    fetch_merch_orders,
 )
 
 st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
@@ -33,57 +40,54 @@ st.markdown(BADGE_CSS, unsafe_allow_html=True)
 
 
 # ── LOAD DATA ─────────────────────────────────────────────────────────────────
-# ── LOAD DATA ─────────────────────────────────────────────────────────────────
 if "orders" not in st.session_state:
     st.session_state["orders"] = fetch_orders()
 if "images" not in st.session_state:
     st.session_state["images"] = fetch_images()
 if "archived_orders" not in st.session_state:
     st.session_state["archived_orders"] = fetch_archived_orders()
+if "merch_orders" not in st.session_state:
+    st.session_state["merch_orders"] = fetch_merch_orders()
 
 orders = st.session_state["orders"]
 images = st.session_state["images"]
 archived_orders = st.session_state["archived_orders"]
+merch_orders = st.session_state["merch_orders"]
 
 image_map = build_image_map(images)
 picture_map = build_picture_map(orders)
 
-# ═══════════════════════════════════════════════════════════════════
-# HEADER
-# ═══════════════════════════════════════════════════════════════════
+# ── HEADER ────────────────────────────────────────────────────────────────────
 st.markdown("## Bestellungsverwaltung")
 
-col_title, col_refresh, col_pdf = st.columns([7, 2, 2])
+col_title, col_refresh = st.columns([9, 2])
 with col_title:
-    st.caption(f"{len(orders)} Bestellungen gesamt")
+    st.caption(
+        f"{len(orders)} Fotobestellungen · {len(merch_orders)} Hoodie-Bestellungen")
 with col_refresh:
-    if st.button("🔄 Daten aktualisieren"):
+    if st.button("🔄 Aktualisieren", use_container_width=True):
         st.session_state["orders"] = fetch_orders()
         st.session_state["images"] = fetch_images()
         st.session_state["archived_orders"] = fetch_archived_orders()
+        st.session_state["merch_orders"] = fetch_merch_orders()
         st.rerun()
-with col_pdf:
-    st.download_button(
-        label="⬇️ PDF Exportieren",
-        data=generate_pdf(picture_map),
-        file_name="Bestellungsübersicht.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-    )
 
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
-    ["Bildübersicht", "Zahlungen", "Uploads", "Einstellungen", "Berechnungen", "Archiv"])
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "Bildübersicht", "Zahlungen", "Uploads",
+    "Einstellungen", "Berechnungen", "Archiv",
+    "Teilnahme", "Export"
+])
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 1 - PICTURE OVERVIEW
+# TAB 1 – PICTURE OVERVIEW
 # ═══════════════════════════════════════════════════════════════════
 with tab1:
     if not picture_map:
         st.info("Noch keine Bestellungen vorhanden.")
     else:
         for key, entries in picture_map.items():
-            title = f"{format_label(key)} - {len(entries)} Bestellungen"
+            title = f"{format_label(key)} – {len(entries)} Bestellungen"
             with st.expander(title):
                 tags = [
                     f'<span style="{TAG_PAID if paid else TAG_UNPAID}">{name}</span>'
@@ -98,7 +102,7 @@ with tab1:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 2 - PAYMENTS
+# TAB 2 – PAYMENTS
 # ═══════════════════════════════════════════════════════════════════
 with tab2:
     total_outstanding = 0.0
@@ -221,7 +225,7 @@ with tab2:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 3 - UPLOADS
+# TAB 3 – UPLOADS
 # ═══════════════════════════════════════════════════════════════════
 with tab3:
     st.markdown("### Alle hochgeladenen Fotos")
@@ -261,7 +265,7 @@ with tab3:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TAB 4 - SETTINGS
+# TAB 4 – SETTINGS
 # ═══════════════════════════════════════════════════════════════════
 with tab4:
     st.markdown("### Preise & Einstellungen")
@@ -301,8 +305,9 @@ with tab4:
                 st.cache_data.clear()
                 st.success("✅ Einstellungen gespeichert!")
 
+
 # ═══════════════════════════════════════════════════════════════════
-# TAB 5 - CALCULATIONS
+# TAB 5 – CALCULATIONS
 # ═══════════════════════════════════════════════════════════════════
 with tab5:
     total_standard = 0
@@ -340,7 +345,6 @@ with tab5:
     total_PRINTING_COST = total_all_images * PRINTING_COST
     total_profit = total_revenue - total_PRINTING_COST
 
-    # ── Profit forecast ───────────────────────────────────────────
     st.markdown("#### Gewinnvorhersage")
     fc1, fc2 = st.columns(2)
     with fc1:
@@ -390,10 +394,10 @@ with tab5:
     h5.markdown("**Gewinn**")
 
     rows = [
-        ("LK / GK Fotos", total_standard,    NORMAL_IMAGE_PRICE),
-        ("Mottowoche",     total_mottowoche,  NORMAL_IMAGE_PRICE),
-        ("Stufenfotos",    total_stufenfotos, NORMAL_IMAGE_PRICE),
-        ("Eigene Uploads", total_uploads,     UPLOAD_PHOTO_PRICE),
+        ("LK / GK Fotos",  total_standard,    NORMAL_IMAGE_PRICE),
+        ("Mottowoche",      total_mottowoche,  NORMAL_IMAGE_PRICE),
+        ("Stufenfotos",     total_stufenfotos, NORMAL_IMAGE_PRICE),
+        ("Eigene Uploads",  total_uploads,     UPLOAD_PHOTO_PRICE),
     ]
 
     for label, count, price in rows:
@@ -406,15 +410,12 @@ with tab5:
         c4.write(f"{cost:.2f}€")
         c5.write(f"**{rev - cost:.2f}€**")
 
-    # st.divider()
-
     s0, s1, s2, s3, s4 = st.columns([3, 1, 1, 1, 1])
     s1.metric("Anzahl Bilder", str(total_all_images))
     s2.metric("Gesamteinnahmen", f"{total_revenue:.2f}€")
     s3.metric("Druckkosten gesamt", f"{total_PRINTING_COST:.2f}€")
     s4.metric("Gewinn", f"{total_profit:.2f}€")
 
-    # ── Per-unit pricing breakdown ────────────────────────────────
     st.divider()
     st.markdown("#### Preisstruktur pro Bild")
 
@@ -426,25 +427,24 @@ with tab5:
                          100) if UPLOAD_PHOTO_PRICE else 0
 
     pu1, pu2 = st.columns(2)
-
     with pu1:
         st.markdown("**Normalbild / Mottowoche / Stufenfoto**")
         p1, p2, p3 = st.columns(3)
         p1.metric("Verkaufspreis", f"{NORMAL_IMAGE_PRICE:.2f}€")
         p2.metric("Druckkosten",   f"{PRINTING_COST:.2f}€")
-        p3.metric("Marge",         f"{margin_normal:.2f}€",
+        p3.metric("Marge", f"{margin_normal:.2f}€",
                   delta=f"{margin_pct_normal:.0f}%", delta_color="normal")
-
     with pu2:
         st.markdown("**Eigener Upload**")
         p1, p2, p3 = st.columns(3)
         p1.metric("Verkaufspreis", f"{UPLOAD_PHOTO_PRICE:.2f}€")
         p2.metric("Druckkosten",   f"{PRINTING_COST:.2f}€")
-        p3.metric("Marge",         f"{margin_upload:.2f}€",
+        p3.metric("Marge", f"{margin_upload:.2f}€",
                   delta=f"{margin_pct_upload:.0f}%", delta_color="normal")
 
+
 # ═══════════════════════════════════════════════════════════════════
-# TAB 6 - ARCHIVE
+# TAB 6 – ARCHIVE
 # ═══════════════════════════════════════════════════════════════════
 with tab6:
     st.markdown("### Archivierte Bestellungen")
@@ -495,3 +495,150 @@ with tab6:
                     st.session_state["orders"] = fetch_orders()
                     st.session_state["archived_orders"] = fetch_archived_orders()
                     st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 7 – TEILNAHME (participation tracker)
+# ═══════════════════════════════════════════════════════════════════
+with tab7:
+    foto_names_submitted = {o.get("name") for o in orders}
+    merch_names_submitted = {o.get("name") for o in merch_orders}
+
+    # ── Foto participation ────────────────────────────────
+    st.markdown("### 📸 Fotobestellung")
+    foto_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in foto_names_submitted])
+    foto_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in foto_names_submitted])
+
+    fc1, fc2, fc3 = st.columns(3)
+    fc1.metric("Bestellt", len(foto_submitted))
+    fc2.metric("Ausstehend", len(foto_missing))
+    fc3.metric("Gesamt", len(NAME_OPTIONS))
+
+    col_done, col_missing = st.columns(2)
+
+    with col_done:
+        st.markdown(f"**✅ Abgegeben ({len(foto_submitted)})**")
+        for name in foto_submitted:
+            st.markdown(
+                f'<span style="{TAG_PAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    with col_missing:
+        st.markdown(f"**⏳ Noch nicht bestellt ({len(foto_missing)})**")
+        for name in foto_missing:
+            st.markdown(
+                f'<span style="{TAG_UNPAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    st.divider()
+
+    # ── Hoodie participation ──────────────────────────────
+    st.markdown("### 🧥 Hoodie Bestellung")
+    merch_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in merch_names_submitted])
+    merch_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in merch_names_submitted])
+
+    mc1, mc2, mc3 = st.columns(3)
+    mc1.metric("Bestellt", len(merch_submitted))
+    mc2.metric("Ausstehend", len(merch_missing))
+    mc3.metric("Gesamt", len(NAME_OPTIONS))
+
+    col_done2, col_missing2 = st.columns(2)
+
+    with col_done2:
+        st.markdown(f"**✅ Abgegeben ({len(merch_submitted)})**")
+        for name in merch_submitted:
+            st.markdown(
+                f'<span style="{TAG_PAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    with col_missing2:
+        st.markdown(f"**⏳ Noch nicht bestellt ({len(merch_missing)})**")
+        for name in merch_missing:
+            st.markdown(
+                f'<span style="{TAG_UNPAID}">{name}</span>',
+                unsafe_allow_html=True
+            )
+
+    st.divider()
+
+    # ── Hoodie size & color summary ───────────────────────
+    st.markdown("### 📊 Hoodie Größen & Farben")
+
+    size_counts = defaultdict(int)
+    color_counts = defaultdict(int)
+    for o in merch_orders:
+        size_counts[o.get("size", "?")] += 1
+        color_counts[o.get("color", "?")] += 1
+
+    sz_col, cl_col = st.columns(2)
+
+    with sz_col:
+        st.markdown("**Größen**")
+        for size in SIZE_OPTIONS:
+            count = size_counts.get(size, 0)
+            bar = "█" * count + "░" * max(0, 10 - count)
+            st.markdown(f"`{size:<4}` {bar} **{count}**")
+
+    with cl_col:
+        st.markdown("**Farben**")
+        for color in COLOR_OPTIONS:
+            count = color_counts.get(color, 0)
+            bar = "█" * count + "░" * max(0, 10 - count)
+            st.markdown(f"`{color:<20}` {bar} **{count}**")
+
+
+# ═══════════════════════════════════════════════════════════════════
+# TAB 8 – EXPORT
+# ═══════════════════════════════════════════════════════════════════
+with tab8:
+    st.markdown("### Exporte")
+
+    st.markdown("#### 📸 Fotobestellung")
+
+    ex1, ex2 = st.columns(2)
+
+    with ex1:
+        st.markdown("**A – Bildübersicht**")
+        st.caption("Alle Fototypen mit Namen und Zahlungsstatus")
+        st.download_button(
+            label="⬇️ PDF Bildübersicht",
+            data=generate_pdf(picture_map),
+            file_name="Bilduebersicht.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    with ex2:
+        st.markdown("**B – Abikasse Abrechnung**")
+        st.caption(
+            f"Alle Gratis-Bilder (bis {AMOUNT_OF_FREE_IMAGES} pro Person), die die Abikasse zahlt")
+        st.download_button(
+            label="⬇️ PDF Abikasse",
+            data=generate_abikasse_pdf(orders),
+            file_name="Abikasse_Abrechnung.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    st.divider()
+
+    st.markdown("#### 🧥 Hoodie Bestellung")
+    st.caption("Alle Hoodie-Bestellungen mit Größen- und Farb-Übersicht")
+
+    if not merch_orders:
+        st.info("Noch keine Hoodie-Bestellungen vorhanden.")
+    else:
+        st.download_button(
+            label="⬇️ PDF Hoodies",
+            data=generate_hoodie_pdf(merch_orders),
+            file_name="Hoodie_Bestellungen.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
