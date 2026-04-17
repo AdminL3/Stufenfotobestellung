@@ -35,7 +35,8 @@ def update_payment(order_id, paid: bool):
     resp = requests.patch(
         f"{ORDERS_URL}?id=eq.{order_id}",
         json={"paid": paid},
-        headers={**BASE_HEADERS, "Prefer": "return=minimal"}
+        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+        timeout=10
     )
     return resp.status_code in [200, 201, 204]
 
@@ -185,7 +186,7 @@ def generate_abikasse_pdf(orders):
                  color=colors.HexColor("#dddddd"), spaceAfter=16))
 
     # Table header
-    col_widths = [5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm]
+    col_widths = [5*cm, 2.5*cm, 2.5*cm, 2.5*cm]
     header_row = [
         Paragraph("Name", header_style),
         Paragraph("Bilder\ngesamt", header_style),
@@ -320,7 +321,7 @@ def generate_hoodie_pdf(merch_orders):
             Paragraph(o.get("color", "?"), cell_style),
         ])
 
-    t_list = Table(list_rows, colWidths=[5.5*cm, 2.5*cm, 4*cm, 4.5*cm])
+    t_list = Table(list_rows, colWidths=[5.5*cm, 2.5*cm, 4*cm])
     t_list.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1),
@@ -459,7 +460,7 @@ def create_zip_all(images_list, order_lookup):
             pos = img.get("position", 0)
             person_name = order_lookup.get(
                 order_id, "unknown").replace(" ", "_")
-            response = requests.get(url)
+            response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 filename = f"{person_name}_{order_id[:8]}_{pos:02d}.jpg"
                 z.writestr(filename, response.content)
@@ -475,7 +476,7 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
         "Content-Type": file.type,
     }
     response = requests.post(
-        upload_url, headers=upload_headers, data=file.getvalue())
+        upload_url, headers=upload_headers, data=file.getvalue(), timeout=10)
     if response.status_code in [200, 201]:
         return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET_NAME}/{filename}"
     else:
@@ -486,7 +487,8 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
 def fetch_images():
     resp = requests.get(
         IMAGES_URL, headers=BASE_HEADERS,
-        params={"select": "*", "order": "order_id,position.asc"}
+        params={"select": "*", "order": "order_id,position.asc"},
+        timeout=10
     )
     return resp.json() if resp.status_code == 200 else []
 
@@ -495,7 +497,8 @@ def archive_order(order_id, archived: bool):
     resp = requests.patch(
         f"{ORDERS_URL}?id=eq.{order_id}",
         json={"archived": archived},
-        headers={**BASE_HEADERS, "Prefer": "return=minimal"}
+        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+        timeout=10
     )
     return resp.status_code in [200, 201, 204]
 
@@ -503,7 +506,9 @@ def archive_order(order_id, archived: bool):
 def fetch_orders():
     resp = requests.get(
         ORDERS_URL, headers=BASE_HEADERS,
-        params={"select": "*", "order": "created_at.asc", "archived": "eq.false"}
+        params={"select": "*", "order": "created_at.asc",
+                "archived": "eq.false"},
+        timeout=10
     )
     return resp.json() if resp.status_code == 200 else []
 
@@ -511,7 +516,8 @@ def fetch_orders():
 def fetch_archived_orders():
     resp = requests.get(
         ORDERS_URL, headers=BASE_HEADERS,
-        params={"select": "*", "order": "created_at.asc", "archived": "eq.true"}
+        params={"select": "*", "order": "created_at.asc", "archived": "eq.true"},
+        timeout=10
     )
     return resp.json() if resp.status_code == 200 else []
 
@@ -522,6 +528,7 @@ def fetch_merch_orders():
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/abimerch",
         headers=BASE_HEADERS,
-        params={"select": "*", "order": "created_at.asc"}
+        params={"select": "*", "order": "created_at.asc"},
+        timeout=10
     )
     return resp.json() if resp.status_code == 200 else []

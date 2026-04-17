@@ -495,10 +495,10 @@ with tab_extra:
 
             if st.form_submit_button("💾 Speichern"):
                 updates = {
-                    "MAX_IMAGES": str(new_max),
+                    "MAX_IMAGES": str(int(new_max)),
                     "NORMAL_IMAGE_PRICE": str(new_price),
                     "UPLOAD_PHOTO_PRICE": str(new_upload),
-                    "AMOUNT_OF_FREE_IMAGES": str(new_free),
+                    "AMOUNT_OF_FREE_IMAGES": str(int(new_free)),
                     "PRINTING_COST": str(cfg["PRINTING_COST"]),
                 }
                 success = all(
@@ -506,6 +506,7 @@ with tab_extra:
                         f"{CONFIG_URL}?key=eq.{key}",
                         json={"value": value},
                         headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+                        timeout=10
                     ).status_code in {200, 201, 204}
                     for key, value in updates.items()
                 )

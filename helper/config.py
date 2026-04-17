@@ -10,15 +10,16 @@ def load_config():
     resp = requests.get(
         CONFIG_URL,
         headers=BASE_HEADERS,
-        params={"select": "key,value"}
+        params={"select": "key,value"},
+        timeout=10
     )
     raw = resp.json() if resp.status_code == 200 else []
     data = {row["key"]: row["value"] for row in raw}
     return {
-        "MAX_IMAGES": int(data.get("MAX_IMAGES", 20)),
+        "MAX_IMAGES": int(float(data.get("MAX_IMAGES", 20))),
         "NORMAL_IMAGE_PRICE": float(data.get("NORMAL_IMAGE_PRICE", 0.25)),
         "UPLOAD_PHOTO_PRICE": float(data.get("UPLOAD_PHOTO_PRICE", 0.49)),
-        "AMOUNT_OF_FREE_IMAGES": int(data.get("AMOUNT_OF_FREE_IMAGES", 2)),
+        "AMOUNT_OF_FREE_IMAGES": int(float(data.get("AMOUNT_OF_FREE_IMAGES", 2))),
         "PRINTING_COST": float(data.get("PRINTING_COST", 0.14)),
     }
 
