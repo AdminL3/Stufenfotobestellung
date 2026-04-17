@@ -161,6 +161,18 @@ with tab_foto:
         if not foto_name:
             st.error("Bitte Namen eingeben.")
             st.stop()
+
+        # Check for duplicate orders
+        existing = requests.get(
+            f"{SUPABASE_URL}/rest/v1/orders",
+            headers={**BASE_HEADERS},
+            params={"name": f"eq.{foto_name}", "archived": "eq.false"},
+            timeout=10
+        )
+        if existing.status_code == 200 and len(existing.json()) > 0:
+            st.warning(
+                f"⚠️ Es existiert bereits eine Bestellung für {foto_name}. Eine neue Bestellung wird erstellt.")
+
         if extra_cost > 0:
             st.session_state["foto_pending"] = True
         else:
@@ -201,7 +213,8 @@ with tab_foto:
         order_response = requests.post(
             f"{SUPABASE_URL}/rest/v1/orders",
             json=order_data,
-            headers={**BASE_HEADERS, "Prefer": "return=representation"}
+            headers={**BASE_HEADERS, "Prefer": "return=representation"},
+            timeout=10
         )
 
         if order_response.status_code not in [200, 201]:
@@ -231,7 +244,8 @@ with tab_foto:
                     img_response = requests.post(
                         f"{SUPABASE_URL}/rest/v1/order_images",
                         json=img_data,
-                        headers={**BASE_HEADERS, "Prefer": "return=minimal"}
+                        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+                        timeout=10
                     )
                     if img_response.status_code not in [200, 201, 204]:
                         st.error(
@@ -260,6 +274,17 @@ with tab_merch:
             st.error("Bitte Namen auswählen.")
             st.stop()
 
+        # Check for duplicate orders
+        existing = requests.get(
+            f"{SUPABASE_URL}/rest/v1/abimerch",
+            headers={**BASE_HEADERS},
+            params={"name": f"eq.{merch_name}"},
+            timeout=10
+        )
+        if existing.status_code == 200 and len(existing.json()) > 0:
+            st.warning(
+                f"⚠️ Es existiert bereits eine Hoodie-Bestellung für {merch_name}. Eine neue Bestellung wird erstellt.")
+
         order_data = {
             "name": merch_name,
             "size": size,
@@ -271,6 +296,7 @@ with tab_merch:
             f"{SUPABASE_URL}/rest/v1/abimerch",
             json=order_data,
             headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+            timeout=10
         )
 
         if response.status_code in [200, 201, 204]:
