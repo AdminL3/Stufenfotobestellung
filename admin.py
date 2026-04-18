@@ -365,8 +365,8 @@ with tab_hoodie:
         file_name="Hoodie_Bestellungen.pdf",
         mime="application/pdf",
     )
-    hoodie_all, hoodie_overview = st.tabs(
-        ["Einzeln", "Gesamt"])
+    hoodie_all, hoodie_overview, hoodie_unterschriften = st.tabs(
+        ["Einzeln", "Gesamt", "Unterschriften"])
 
     with hoodie_all:
         if not merch_orders:
@@ -403,6 +403,25 @@ with tab_hoodie:
 
             st.dataframe(pd.DataFrame(matrix_data),
                          use_container_width=True, hide_index=True)
+
+    with hoodie_unterschriften:
+        st.markdown("### Hochgeladene Unterschriften")
+
+        orders_with_design = [
+            o for o in merch_orders if o.get("design_image")
+        ]
+
+        c1.metric("Unterschriften", len(orders_with_design))
+
+        if not orders_with_design:
+            st.info("Noch keine Designs hochgeladen.")
+        else:
+            cols = st.columns(3)
+            for i, order in enumerate(sorted(orders_with_design, key=lambda x: x.get("name", ""))):
+                with cols[i % 3]:
+                    st.image(order["design_image"], use_container_width=True)
+                    st.caption(
+                        f"{order.get('name', '?')} · {order.get('size', '?')} · {order.get('color', '?')}")
 
 
 # region Extra

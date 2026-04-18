@@ -41,7 +41,15 @@ CREATE TABLE orders (
     archived          boolean DEFAULT false
 );
 
-ALTER TABLE orders DISABLE ROW LEVEL SECURITY;
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anon all" ON orders;
+CREATE POLICY "Allow anon all"
+ON orders FOR ALL TO anon
+USING (true) WITH CHECK (true);
+
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT INSERT, SELECT, UPDATE ON TABLE orders TO anon;
 
 -- ── IMAGES TABLE ──────────────────────────────────────────────────────────────
 CREATE TABLE order_images (
@@ -53,8 +61,14 @@ CREATE TABLE order_images (
     position    int
 );
 
-ALTER TABLE order_images DISABLE ROW LEVEL SECURITY;
+ALTER TABLE order_images ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow anon all" ON order_images;
+CREATE POLICY "Allow anon all"
+ON order_images FOR ALL TO anon
+USING (true) WITH CHECK (true);
+
+GRANT INSERT, SELECT ON TABLE order_images TO anon;
 
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║  CONFIG                                                                   ║
@@ -64,7 +78,14 @@ CREATE TABLE config (
     value  text NOT NULL
 );
 
-ALTER TABLE config DISABLE ROW LEVEL SECURITY;
+ALTER TABLE config ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anon all" ON config;
+CREATE POLICY "Allow anon all"
+ON config FOR ALL TO anon
+USING (true) WITH CHECK (true);
+
+GRANT SELECT, UPDATE ON TABLE config TO anon;
 
 INSERT INTO config (key, value) VALUES
     ('MAX_IMAGES',              '20'),
@@ -74,33 +95,29 @@ INSERT INTO config (key, value) VALUES
     ('PRINTING_COST',           '0.14')
 ON CONFLICT (key) DO NOTHING;
 
--- ── GRANTS ────────────────────────────────────────────────────────────────────
-GRANT USAGE ON SCHEMA public TO anon;
-GRANT INSERT, SELECT ON TABLE orders TO anon;
-GRANT INSERT, SELECT ON TABLE order_images TO anon;
-GRANT SELECT ON TABLE config TO anon;
-
--- Admin needs UPDATE for payments, archiving, and config changes
-GRANT UPDATE ON TABLE orders TO anon;
-GRANT UPDATE ON TABLE config TO anon;
-
 -- ╔═══════════════════════════════════════════════════════════════════════════╗
 -- ║  ABIMERCH                                                                 ║
 -- ╚═══════════════════════════════════════════════════════════════════════════╝
+
 -- ── RESET ─────────────────────────────────────────────────────────────────────
 DROP TABLE IF EXISTS abimerch CASCADE;
 
 -- ── ABIMERCH TABLE ────────────────────────────────────────────────────────────
 CREATE TABLE abimerch (
-    id          uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-    created_at  timestamptz DEFAULT now(),
-    name        text NOT NULL,
-    size        text NOT NULL,
-    color       text NOT NULL
+    id           uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    created_at   timestamptz DEFAULT now(),
+    name         text NOT NULL,
+    size         text NOT NULL,
+    color        text NOT NULL,
+    design_image text
 );
 
-ALTER TABLE abimerch DISABLE ROW LEVEL SECURITY;
+ALTER TABLE abimerch ENABLE ROW LEVEL SECURITY;
 
--- ── GRANTS ────────────────────────────────────────────────────────────────────
+DROP POLICY IF EXISTS "Allow anon all" ON abimerch;
+CREATE POLICY "Allow anon all"
+ON abimerch FOR ALL TO anon
+USING (true) WITH CHECK (true);
+
 GRANT USAGE ON SCHEMA public TO anon;
-GRANT INSERT, SELECT ON TABLE abimerch TO anon;
+GRANT INSERT, SELECT, UPDATE ON TABLE abimerch TO anon;

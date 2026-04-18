@@ -269,6 +269,17 @@ with tab_merch:
     st.subheader("Farbe")
     color = st.radio("Farbe auswählen", COLOR_OPTIONS)
 
+    st.subheader("Unterschrift hochladen (wenn nicht auf Design)")
+    st.write("Schwarz-Weiß, Digitalisiert, Bild oder Pdf")
+    design_file = st.file_uploader(
+        "Design auswählen",
+        type=["jpg", "jpeg", "png", "webp", "pdf"],
+        key="merch_design"
+    )
+    if design_file:
+        st.image(design_file, caption="Vorschau",
+                 use_container_width=True)
+
     if st.button("Speichern", type="primary", key="merch_submit"):
         if not merch_name:
             st.error("Bitte Namen auswählen.")
@@ -285,10 +296,22 @@ with tab_merch:
             st.warning(
                 f"⚠️ Es existiert bereits eine Hoodie-Bestellung für {merch_name}. Eine neue Bestellung wird erstellt.")
 
+        design_url = None
+        if design_file:
+            with st.spinner("Unterschrift wird hochgeladen..."):
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
+                safe_name = merch_name.replace(" ", "_")
+                ext = design_file.name.split(".")[-1]
+                filename = f"hoodie_{safe_name}_{timestamp}.{ext}"
+                design_url = upload_image_to_supabase(design_file, filename)
+                if design_url is None:
+                    st.stop()
+
         order_data = {
             "name": merch_name,
             "size": size,
             "color": color,
+            "design_image": design_url,
             "created_at": datetime.now().isoformat(),
         }
 
