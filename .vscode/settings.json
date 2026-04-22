@@ -10,6 +10,9 @@
     "**/.venv": true,
     "**/.dockerignore": true,
     "**/helper/__pycache__": true,
+    "**/Dockerfile": true,
+    "**/fly.toml": true,
+    "**/helper/pdf_styles.py": true,
     "**/.github": true
   }
 }
