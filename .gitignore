@@ -1,6 +1,7 @@
 /.streamlit
-/.vscode
+# /.vscode
 /__pycache__
 Fotos.ods
 .~lock.Fotos.ods\#
 /helper/__pycache__
+/.venv

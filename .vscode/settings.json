@@ -1,0 +1,12 @@
+{
+  "files.exclude": {
+    "**/Fotos.ods": true,
+    // "**/.vscode": true,
+    "**/.streamlit": true,
+    "**/.gitattributes": true,
+    "**/.gitignore": true,
+    "**/requirements.txt": true,
+    "**/helper/RESET.SQL": true,
+    "**/.venv": true
+  }
+}
