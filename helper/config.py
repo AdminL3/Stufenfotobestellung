@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
-from helper.constants import ORDERS_URL, BASE_HEADERS
-
+from helper.constants import ORDERS_URL
+from helper.auth import get_headers
 CONFIG_URL = ORDERS_URL.replace("/orders", "/config")
 
 
@@ -9,7 +9,7 @@ CONFIG_URL = ORDERS_URL.replace("/orders", "/config")
 def load_config():
     resp = requests.get(
         CONFIG_URL,
-        headers=BASE_HEADERS,
+        headers=get_headers(),
         params={"select": "key,value"},
         timeout=10
     )

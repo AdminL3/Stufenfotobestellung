@@ -7,9 +7,9 @@ from reportlab.lib.units import cm
 from reportlab.lib import colors
 from datetime import datetime
 import streamlit as st
+from helper.auth import get_headers
 from helper.constants import (
     SUPABASE_URL,
-    SUPABASE_KEY,
     BUCKET_NAME,
     MOTTO_LABELS,
     STUFEN_LABELS,
@@ -18,24 +18,32 @@ from helper.constants import (
     SIZE_OPTIONS,
     ORDERS_URL,
     IMAGES_URL,
-    BASE_HEADERS
 )
 from helper.config import (
     NORMAL_IMAGE_PRICE,
     UPLOAD_PHOTO_PRICE,
     AMOUNT_OF_FREE_IMAGES,
-    PRINTING_COST
 )
 import requests
 import zipfile
 import io
+import os
+
+
+def get_headers():
+    key = os.environ.get("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
+    return {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
 
 
 def update_payment(order_id, paid: bool):
     resp = requests.patch(
         f"{ORDERS_URL}?id=eq.{order_id}",
         json={"paid": paid},
-        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+        headers={**get_headers(), "Prefer": "return=minimal"},
         timeout=10
     )
     return resp.status_code in [200, 201, 204]
@@ -471,8 +479,7 @@ def create_zip_all(images_list, order_lookup):
 def upload_image_to_supabase(file, filename: str) -> str | None:
     upload_url = f"{SUPABASE_URL}/storage/v1/object/{BUCKET_NAME}/{filename}"
     upload_headers = {
-        "apikey": SUPABASE_KEY,
-        "Authorization": f"Bearer {SUPABASE_KEY}",
+        **get_headers(),
         "Content-Type": file.type,
     }
     response = requests.post(
@@ -486,7 +493,7 @@ def upload_image_to_supabase(file, filename: str) -> str | None:
 
 def fetch_images():
     resp = requests.get(
-        IMAGES_URL, headers=BASE_HEADERS,
+        IMAGES_URL, headers=get_headers(),
         params={"select": "*", "order": "order_id,position.asc"},
         timeout=10
     )
@@ -497,7 +504,7 @@ def archive_order(order_id, archived: bool):
     resp = requests.patch(
         f"{ORDERS_URL}?id=eq.{order_id}",
         json={"archived": archived},
-        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+        headers={**get_headers(), "Prefer": "return=minimal"},
         timeout=10
     )
     return resp.status_code in [200, 201, 204]
@@ -505,7 +512,7 @@ def archive_order(order_id, archived: bool):
 
 def fetch_orders():
     resp = requests.get(
-        ORDERS_URL, headers=BASE_HEADERS,
+        ORDERS_URL, headers=get_headers(),
         params={"select": "*", "order": "created_at.asc",
                 "archived": "eq.false"},
         timeout=10
@@ -515,7 +522,7 @@ def fetch_orders():
 
 def fetch_archived_orders():
     resp = requests.get(
-        ORDERS_URL, headers=BASE_HEADERS,
+        ORDERS_URL, headers=get_headers(),
         params={"select": "*", "order": "created_at.asc", "archived": "eq.true"},
         timeout=10
     )
@@ -523,11 +530,12 @@ def fetch_archived_orders():
 
 
 def fetch_merch_orders():
-    if not SUPABASE_URL or not SUPABASE_KEY:
+    url = os.environ.get("SUPABASE_URL") or st.secrets.get("SUPABASE_URL")
+    if not url:
         return []
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/abimerch",
-        headers=BASE_HEADERS,
+        f"{url}/rest/v1/abimerch",
+        headers=get_headers(),
         params={"select": "*", "order": "created_at.asc"},
         timeout=10
     )

@@ -2,7 +2,6 @@ import streamlit as st
 import requests
 from datetime import datetime
 from helper.constants import (
-    BASE_HEADERS,
     COLOR_OPTIONS,
     LK_OPTIONS,
     GK_OPTIONS,
@@ -13,6 +12,7 @@ from helper.constants import (
     STUFEN_LABELS,
     SUPABASE_URL
 )
+from helper.auth import get_headers
 from helper.config import (
     MAX_IMAGES,
     NORMAL_IMAGE_PRICE,
@@ -165,7 +165,7 @@ from helper.utils import (
 #         # Check for duplicate orders
 #         existing = requests.get(
 #             f"{SUPABASE_URL}/rest/v1/orders",
-#             headers={**BASE_HEADERS},
+#             headers={**get_headers()},
 #             params={"name": f"eq.{foto_name}", "archived": "eq.false"},
 #             timeout=10
 #         )
@@ -213,7 +213,7 @@ from helper.utils import (
 #         order_response = requests.post(
 #             f"{SUPABASE_URL}/rest/v1/orders",
 #             json=order_data,
-#             headers={**BASE_HEADERS, "Prefer": "return=representation"},
+#             headers={**get_headers(), "Prefer": "return=representation"},
 #             timeout=10
 #         )
 
@@ -244,7 +244,7 @@ from helper.utils import (
 #                     img_response = requests.post(
 #                         f"{SUPABASE_URL}/rest/v1/order_images",
 #                         json=img_data,
-#                         headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+#                         headers={**get_headers(), "Prefer": "return=minimal"},
 #                         timeout=10
 #                     )
 #                     if img_response.status_code not in [200, 201, 204]:
@@ -288,7 +288,7 @@ from helper.utils import (
 #         # Check for duplicate orders
 #         existing = requests.get(
 #             f"{SUPABASE_URL}/rest/v1/abimerch",
-#             headers={**BASE_HEADERS},
+#             headers={**get_headers()},
 #             params={"name": f"eq.{merch_name}"},
 #             timeout=10
 #         )
@@ -318,7 +318,7 @@ from helper.utils import (
 #         response = requests.post(
 #             f"{SUPABASE_URL}/rest/v1/abimerch",
 #             json=order_data,
-#             headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+#             headers={**get_headers(), "Prefer": "return=minimal"},
 #             timeout=10
 #         )
 
@@ -360,7 +360,7 @@ if st.button("Speichern", type="primary", key="merch_submit"):
     # Check for duplicate orders
     existing = requests.get(
         f"{SUPABASE_URL}/rest/v1/abimerch",
-        headers={**BASE_HEADERS},
+        headers=get_headers(),
         params={"name": f"eq.{merch_name}"},
         timeout=10
     )
@@ -390,7 +390,7 @@ if st.button("Speichern", type="primary", key="merch_submit"):
     response = requests.post(
         f"{SUPABASE_URL}/rest/v1/abimerch",
         json=order_data,
-        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+        headers={**get_headers(), "Prefer": "return=minimal"},
         timeout=10
     )
 

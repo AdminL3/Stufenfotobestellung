@@ -15,7 +15,6 @@ from helper.config import (
 )
 from helper.constants import (
     BADGE_CSS,
-    BASE_HEADERS,
     COLOR_OPTIONS,
     MOTTO_LABELS,
     NAME_OPTIONS,
@@ -39,6 +38,7 @@ from helper.utils import (
     generate_hoodie_pdf,
     generate_teilnahme_pdf,
     update_payment,
+    get_headers
 )
 
 st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
@@ -524,7 +524,7 @@ with tab_extra:
                     requests.patch(
                         f"{CONFIG_URL}?key=eq.{key}",
                         json={"value": value},
-                        headers={**BASE_HEADERS, "Prefer": "return=minimal"},
+                        headers={**get_headers(), "Prefer": "return=minimal"},
                         timeout=10
                     ).status_code in {200, 201, 204}
                     for key, value in updates.items()
