@@ -9,6 +9,7 @@
     "**/helper/RESET.SQL": true,
     "**/.venv": true,
     "**/.dockerignore": true,
-    "**/helper/__pycache__": true
+    "**/helper/__pycache__": true,
+    "**/.github": true
   }
 }
