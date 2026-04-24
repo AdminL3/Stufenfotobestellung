@@ -534,17 +534,14 @@ with tab_extra:
 
     # region Berechnungen
     with sub_berechnungen:
-        total_standard = 0
-        total_mottowoche = 0
-        total_stufenfotos = 0
-        free_standard = 0
-        free_mottowoche = 0
-        free_stufenfotos = 0
-        total_free_imgs = 0
+        # 1. Variablen initialisieren
+        total_standard, total_mottowoche, total_stufenfotos = 0, 0, 0
+        free_standard, free_mottowoche, free_stufenfotos = 0, 0, 0
         total_images = 0
+        total_free_imgs = 0
 
+        # Hilfsfunktion zur Verteilung des Gratis-Budgets
         def split_free(counts: list[int], budget: int) -> list[int]:
-            """Distribute a free-image budget across categories in order."""
             result = []
             remaining = budget
             for c in counts:
@@ -553,76 +550,82 @@ with tab_extra:
                 remaining -= taken
             return result
 
+        # 2. Daten verarbeiten
         for order in orders:
             standard = len(order.get("lk_typ") or []) + \
                 len(order.get("gk_typ") or [])
             mottowoche = len(order.get("mottowoche") or [])
             stufenfotos = len(order.get("stufenfotos") or [])
-            image_count = order.get("image_count") or 0
 
-            total_standard += standard
-            total_mottowoche += mottowoche
-            total_stufenfotos += stufenfotos
-            total_images += image_count
-            total_free_imgs += min(image_count, AMOUNT_OF_FREE_IMAGES)
+            # Wichtig: Wir nehmen den tatsächlichen image_count aus der DB
+            current_total = order.get("image_count", 0) or 0
+            total_images += current_total
 
+            # Wie viele sind insgesamt für diese Person gratis?
+            person_free_budget = min(current_total, AMOUNT_OF_FREE_IMAGES)
+            total_free_imgs += person_free_budget
+
+            # Verteilung auf die Kategorien (für die Tabellen-Ansicht)
             fs, fm, fsf = split_free(
-                [standard, mottowoche, stufenfotos], AMOUNT_OF_FREE_IMAGES)
+                [standard, mottowoche, stufenfotos], person_free_budget)
             free_standard += fs
             free_mottowoche += fm
             free_stufenfotos += fsf
 
+            total_standard += standard
+            total_mottowoche += mottowoche
+            total_stufenfotos += stufenfotos
+
+        # Berechnung der Differenz (was die Schüler zahlen)
         paid_standard = total_standard - free_standard
         paid_mottowoche = total_mottowoche - free_mottowoche
         paid_stufenfotos = total_stufenfotos - free_stufenfotos
         total_paid_imgs = total_images - total_free_imgs
 
-        col_headers = ["**Typ**", "**Anzahl**",
-                       "**Verkaufspreis**", "**Druckkosten**", "**Gewinn**"]
+        # 3. Die Tabellen rendern
+        def render_detailed_table(title, rows, sum_count):
+            st.markdown(f"#### {title}")
+            cols = st.columns([3, 1, 1, 1, 1])
+            headers = ["Typ", "Anzahl", "Umsatz", "Kosten", "Gewinn"]
+            for col, h in zip(cols, headers):
+                col.write(f"**{h}**")
 
-        def render_table(rows, total_count):
-            for col, label in zip(st.columns([3, 1, 1, 1, 1]), col_headers):
-                col.markdown(label)
-            for row_label, count, price in rows:
+            for label, count, price in rows:
                 rev = count * price
                 cost = count * PRINTING_COST
-                _c = st.columns([3, 1, 1, 1, 1])
-                _c[0].write(row_label)
-                _c[1].write(str(count))
-                _c[2].write(f"{rev:.2f}€")
-                _c[3].write(f"{cost:.2f}€")
-                _c[4].write(f"**{rev - cost:.2f}€**")
-            total_rev = total_count * NORMAL_IMAGE_PRICE
-            total_cost = total_count * PRINTING_COST
-            s0, s1, s2, s3, s4 = st.columns([3, 1, 1, 1, 1])
-            s1.metric("Anzahl Bilder", str(total_count))
-            s2.metric("Gesamteinnahmen", f"{total_rev:.2f}€")
-            s3.metric("Druckkosten gesamt", f"{total_cost:.2f}€")
-            s4.metric("Gewinn", f"{total_rev - total_cost:.2f}€")
+                c = st.columns([3, 1, 1, 1, 1])
+                c[0].write(label)
+                c[1].write(str(count))
+                c[2].write(f"{rev:.2f}€")
+                c[3].write(f"{cost:.2f}€")
+                c[4].write(f"**{rev - cost:.2f}€**")
+            _, s1, s2, s3, s4 = st.columns([3, 1, 1, 1, 1])
+            s1.metric("Gesamt Bilder", sum_count)
+            s2.metric("Einnahmen", f"{sum_count * NORMAL_IMAGE_PRICE:.2f}€")
+            s3.metric("Druckkosten", f"{sum_count * PRINTING_COST:.2f}€")
+            s4.metric(
+                "Netto", f"{(sum_count * (NORMAL_IMAGE_PRICE - PRINTING_COST)):.2f}€")
 
-        # --- Tabelle 1: Abikasse ---
-        st.markdown("#### 1. Gratis-Bilder (Abikasse zahlt)")
-        render_table([
-            ("LK / GK Fotos", free_standard,    NORMAL_IMAGE_PRICE),
-            ("Mottowoche",     free_mottowoche,  NORMAL_IMAGE_PRICE),
-            ("Stufenfotos",    free_stufenfotos, NORMAL_IMAGE_PRICE),
+        # Tabelle 1: Abikasse
+        render_detailed_table("1. Gratis-Bilder (Abikasse zahlt)", [
+            ("LK / GK Fotos", free_standard, NORMAL_IMAGE_PRICE),
+            ("Mottowoche", free_mottowoche, NORMAL_IMAGE_PRICE),
+            ("Stufenfotos", free_stufenfotos, NORMAL_IMAGE_PRICE),
         ], total_free_imgs)
 
         st.divider()
 
-        # --- Tabelle 2: Student zahlt ---
-        st.markdown("#### 2. Bezahlte Bilder (Student zahlt)")
-        render_table([
-            ("LK / GK Fotos", paid_standard,    NORMAL_IMAGE_PRICE),
-            ("Mottowoche",     paid_mottowoche,  NORMAL_IMAGE_PRICE),
-            ("Stufenfotos",    paid_stufenfotos, NORMAL_IMAGE_PRICE),
+        # Tabelle 2: Privat gezahlt
+        render_detailed_table("2. Bezahlte Bilder (Schüler zahlt)", [
+            ("LK / GK Fotos", paid_standard, NORMAL_IMAGE_PRICE),
+            ("Mottowoche", paid_mottowoche, NORMAL_IMAGE_PRICE),
+            ("Stufenfotos", paid_stufenfotos, NORMAL_IMAGE_PRICE),
         ], total_paid_imgs)
 
         st.divider()
 
-        # --- Tabelle 3: Gesamt ---
-        st.markdown("#### 3. Alle Bilder (Gesamt)")
-        render_table([
+        # --- Tabelle 3: Gesamt (Kombination aus 1 und 2) ---
+        render_detailed_table("3. Alle Bilder (Gesamt)", [
             ("LK / GK Fotos", total_standard,    NORMAL_IMAGE_PRICE),
             ("Mottowoche",     total_mottowoche,  NORMAL_IMAGE_PRICE),
             ("Stufenfotos",    total_stufenfotos, NORMAL_IMAGE_PRICE),
