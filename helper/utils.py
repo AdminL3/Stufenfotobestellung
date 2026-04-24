@@ -459,7 +459,200 @@ def generate_teilnahme_pdf(orders, merch_orders):
     return buffer.read()
 
 
-def create_zip_all(images_list, order_lookup):
+def generate_teilnahme_pdf_foto(orders):
+    """Generate PDF with only Foto participation"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    title_style, subtitle_style, heading_style, normal_style = _base_styles()
+    header_style = ParagraphStyle("Header", parent=normal_style,
+                                  fontSize=9, textColor=colors.white, fontName="Helvetica-Bold")
+    cell_style = ParagraphStyle("Cell", parent=normal_style, fontSize=9)
+
+    foto_names_submitted = {o.get("name") for o in orders}
+
+    story = []
+    story.append(Paragraph("Fotobestellung", title_style))
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    foto_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in foto_names_submitted])
+    foto_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in foto_names_submitted])
+
+    foto_rows = [[
+        Paragraph("Bestellt", header_style),
+        Paragraph("Noch nicht bestellt", header_style),
+    ]]
+
+    max_rows = max(len(foto_submitted), len(foto_missing))
+    for i in range(max_rows):
+        submitted_name = Paragraph(
+            foto_submitted[i] if i < len(foto_submitted) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#1a7a5a"))
+        ) if i < len(foto_submitted) else Paragraph("", cell_style)
+
+        missing_name = Paragraph(
+            foto_missing[i] if i < len(foto_missing) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#cc3333"))
+        ) if i < len(foto_missing) else Paragraph("", cell_style)
+
+        foto_rows.append([submitted_name, missing_name])
+
+    t_foto = Table(foto_rows, colWidths=[8*cm, 8*cm])
+    t_foto.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.HexColor("#f9f9f9"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(t_foto)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
+
+def generate_teilnahme_pdf_hoodie(merch_orders):
+    """Generate PDF with only Hoodie participation"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    title_style, subtitle_style, heading_style, normal_style = _base_styles()
+    header_style = ParagraphStyle("Header", parent=normal_style,
+                                  fontSize=9, textColor=colors.white, fontName="Helvetica-Bold")
+    cell_style = ParagraphStyle("Cell", parent=normal_style, fontSize=9)
+
+    merch_names_submitted = {o.get("name") for o in merch_orders}
+
+    story = []
+    story.append(Paragraph("Hoodie Bestellung", title_style))
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    merch_submitted = sorted(
+        [n for n in NAME_OPTIONS if n in merch_names_submitted])
+    merch_missing = sorted(
+        [n for n in NAME_OPTIONS if n not in merch_names_submitted])
+
+    merch_rows = [[
+        Paragraph("Bestellt", header_style),
+        Paragraph("Noch nicht bestellt", header_style),
+    ]]
+
+    max_rows = max(len(merch_submitted), len(merch_missing))
+    for i in range(max_rows):
+        submitted_name = Paragraph(
+            merch_submitted[i] if i < len(merch_submitted) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#1a7a5a"))
+        ) if i < len(merch_submitted) else Paragraph("", cell_style)
+
+        missing_name = Paragraph(
+            merch_missing[i] if i < len(merch_missing) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#cc3333"))
+        ) if i < len(merch_missing) else Paragraph("", cell_style)
+
+        merch_rows.append([submitted_name, missing_name])
+
+    t_merch = Table(merch_rows, colWidths=[8*cm, 8*cm])
+    t_merch.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.HexColor("#f9f9f9"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(t_merch)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
+
+def generate_teilnahme_pdf_all(orders, merch_orders):
+    """Generate PDF with Teilnahme Preset + people with Unterschrift"""
+    from helper.constants import TEILNAHME_PRESET
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    title_style, subtitle_style, heading_style, normal_style = _base_styles()
+    header_style = ParagraphStyle("Header", parent=normal_style,
+                                  fontSize=9, textColor=colors.white, fontName="Helvetica-Bold")
+    cell_style = ParagraphStyle("Cell", parent=normal_style, fontSize=9)
+
+    names_with_unterschrift = {
+        o.get("name") for o in merch_orders if o.get("design_image")
+    }
+
+    preset_and_unterschrift = sorted(
+        set(TEILNAHME_PRESET) | names_with_unterschrift
+    )
+    not_in_preset = sorted(
+        [n for n in NAME_OPTIONS if n not in preset_and_unterschrift]
+    )
+
+    story = []
+    story.append(Paragraph("Teilnahme Preset", title_style))
+    story.append(Paragraph("Auf Liste / Mit Unterschrift", subtitle_style))
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    all_rows = [[
+        Paragraph("Auf Liste / Mit Unterschrift", header_style),
+        Paragraph("Nicht auf Liste", header_style),
+    ]]
+
+    max_rows = max(len(preset_and_unterschrift), len(not_in_preset))
+    for i in range(max_rows):
+        submitted_name = Paragraph(
+            preset_and_unterschrift[i] if i < len(preset_and_unterschrift) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#1a7a5a"))
+        ) if i < len(preset_and_unterschrift) else Paragraph("", cell_style)
+
+        missing_name = Paragraph(
+            not_in_preset[i] if i < len(not_in_preset) else "",
+            ParagraphStyle("Sub", parent=cell_style,
+                           textColor=colors.HexColor("#cc3333"))
+        ) if i < len(not_in_preset) else Paragraph("", cell_style)
+
+        all_rows.append([submitted_name, missing_name])
+
+    t_all = Table(all_rows, colWidths=[8*cm, 8*cm])
+    t_all.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.HexColor("#f9f9f9"), colors.white]),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(t_all)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as z:
         for img in images_list:

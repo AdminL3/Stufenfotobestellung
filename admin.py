@@ -22,13 +22,13 @@ from helper.constants import (
     STUFEN_LABELS,
     TAG_PAID,
     TAG_UNPAID,
+    TEILNAHME_PRESET,
 )
 from helper.utils import (
     archive_order,
     build_image_map,
     build_picture_map,
     calculate_extra_cost,
-    create_zip_all,
     fetch_archived_orders,
     fetch_images,
     fetch_merch_orders,
@@ -37,6 +37,9 @@ from helper.utils import (
     generate_abikasse_pdf,
     generate_hoodie_pdf,
     generate_teilnahme_pdf,
+    generate_teilnahme_pdf_foto,
+    generate_teilnahme_pdf_hoodie,
+    generate_teilnahme_pdf_all,
     update_payment,
     get_headers
 )
@@ -89,8 +92,8 @@ tab_foto, tab_hoodie, tab_extra = st.tabs(
 
 # region Fotobestellung
 with tab_foto:
-    sub_bilder, sub_zahlungen, sub_uploads, sub_archiv, sub_abikasse = st.tabs(
-        ["Bilder", "Zahlungen", "Uploads", "Archiv", "Abikasse"]
+    sub_bilder, sub_zahlungen, sub_archiv, sub_abikasse = st.tabs(
+        ["Bilder", "Zahlungen", "Archiv", "Abikasse"]
     )
 
     with sub_bilder:
@@ -188,10 +191,6 @@ with tab_foto:
                 if stufen:
                     st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
 
-                extra_photos = order.get("extra_photos") or 0
-                if extra_photos > 0:
-                    st.write(f"**Eigene Fotos:** {extra_photos}x")
-
                 order_imgs = image_map.get(order_id, [])
                 if order_imgs:
                     with st.expander(f"Hochgeladene Fotos ({len(order_imgs)})"):
@@ -219,43 +218,6 @@ with tab_foto:
                     st.session_state["orders"] = fetch_orders()
                     st.session_state["archived_orders"] = fetch_archived_orders()
                     st.rerun()
-
-    # region Uploads
-    with sub_uploads:
-        st.markdown("### Alle hochgeladenen Fotos")
-
-        order_lookup = {o["id"]: o.get("name", "?") for o in orders}
-        all_uploads = [
-            (img["url"], order_lookup.get(
-                img["order_id"], "?"), img.get("position", 0))
-            for img in images
-        ]
-
-        if not all_uploads:
-            st.info("Noch keine Fotos hochgeladen.")
-        else:
-            st.caption(f"{len(all_uploads)} Fotos insgesamt")
-
-            if st.button("📦 ZIP vorbereiten"):
-                with st.spinner("Bilder werden heruntergeladen..."):
-                    st.session_state["zip_buffer"] = create_zip_all(
-                        images, order_lookup)
-
-            if "zip_buffer" in st.session_state:
-                st.download_button(
-                    label="📥 Alle Bilder herunterladen (ZIP)",
-                    data=st.session_state["zip_buffer"],
-                    file_name="Bilder.zip",
-                    mime="application/zip",
-                )
-
-            st.divider()
-
-            cols = st.columns(4)
-            for i, (url, name, pos) in enumerate(all_uploads):
-                with cols[i % 4]:
-                    st.image(url)
-                    st.caption(f"{name} · #{pos}")
 
     # region Archiv
     with sub_archiv:
@@ -299,10 +261,6 @@ with tab_foto:
                     if stufen:
                         st.write("**Stufenfotos:** " + "  ·  ".join(stufen))
 
-                    extra_photos = order.get("extra_photos") or 0
-                    if extra_photos > 0:
-                        st.write(f"**Eigene Fotos:** {extra_photos}x")
-
                     st.markdown("")
                     if st.button("↩️ Wiederherstellen", key=f"unarchive_{order_id}"):
                         archive_order(order_id, False)
@@ -334,18 +292,16 @@ with tab_foto:
             })
             total_free_count += free_images
             total_abikasse_cost += cost
+            if abikasse_data:
+                st.dataframe(pd.DataFrame(abikasse_data),
+                             use_container_width=True, hide_index=True)
+                c1, c2 = st.columns([2, 2])
+                c1.metric("Gesamt Gratis-Bilder", total_free_count)
+                c2.metric("Abikasse zahlt gesamt",
+                          f"{total_abikasse_cost:.2f}€")
+            else:
+                st.info("Keine Bestellungen mit Gratis-Bildern vorhanden.")
 
-        if abikasse_data:
-            st.dataframe(pd.DataFrame(abikasse_data),
-                         use_container_width=True, hide_index=True)
-            st.divider()
-            c1, _, c3, _ = st.columns(4)
-            c1.metric("Gesamt Gratis-Bilder", total_free_count)
-            c3.metric("Abikasse zahlt gesamt", f"{total_abikasse_cost:.2f}€")
-        else:
-            st.info("Keine Bestellungen mit Gratis-Bildern vorhanden.")
-
-        st.divider()
         st.download_button(
             label="📥 Als PDF herunterladen",
             data=generate_abikasse_pdf(orders),
@@ -410,9 +366,6 @@ with tab_hoodie:
         orders_with_design = [
             o for o in merch_orders if o.get("design_image")
         ]
-
-        c1.metric("Unterschriften", len(orders_with_design))
-
         if not orders_with_design:
             st.info("Noch keine Designs hochgeladen.")
         else:
@@ -432,20 +385,22 @@ with tab_extra:
 
     foto_names_submitted = {o.get("name") for o in orders}
     merch_names_submitted = {o.get("name") for o in merch_orders}
+    names_with_unterschrift = {
+        o.get("name") for o in merch_orders if o.get("design_image")
+    }
 
     # region Teilnahme
     with sub_teilnahme:
-        st.download_button(
-            label="⬇️ PDF Teilnahme",
-            data=generate_teilnahme_pdf(orders, merch_orders),
-            file_name="Teilnahme.pdf",
-            mime="application/pdf",
-        )
-
-        tab_teilnahme_foto, tab_teilnahme_hoodie = st.tabs(
-            ["📸 Fotos", "🧥 Hoodies"])
+        tab_teilnahme_foto, tab_teilnahme_hoodie, tab_teilnahme_unterschriften = st.tabs(
+            ["📸 Fotos", "🧥 Hoodies", "🖊️ Unterschriften"])
 
         with tab_teilnahme_foto:
+            st.download_button(
+                label="Fotobestellung Teilnahme PDF",
+                data=generate_teilnahme_pdf_foto(orders),
+                file_name="Teilnahme_Fotos.pdf",
+                mime="application/pdf"
+            )
             st.markdown("### 📸 Fotobestellung")
             foto_submitted = sorted(
                 n for n in NAME_OPTIONS if n in foto_names_submitted)
@@ -470,6 +425,12 @@ with tab_extra:
                         f'<span style="{TAG_UNPAID}">{name}</span>', unsafe_allow_html=True)
 
         with tab_teilnahme_hoodie:
+            st.download_button(
+                label="Hoodie Teilnahme PDF",
+                data=generate_teilnahme_pdf_hoodie(merch_orders),
+                file_name="Teilnahme_Hoodies.pdf",
+                mime="application/pdf"
+            )
             st.markdown("### 🧥 Hoodie Bestellung")
             merch_submitted = sorted(
                 n for n in NAME_OPTIONS if n in merch_names_submitted)
@@ -491,6 +452,42 @@ with tab_extra:
                 st.markdown(
                     f"**⏳ Noch nicht bestellt ({len(merch_missing)})**")
                 for name in merch_missing:
+                    st.markdown(
+                        f'<span style="{TAG_UNPAID}">{name}</span>', unsafe_allow_html=True)
+
+        with tab_teilnahme_unterschriften:
+            st.download_button(
+                label="Unterschriften Teilnahme PDF",
+                data=generate_teilnahme_pdf_all(orders, merch_orders),
+                file_name="Teilnahme_Unterschriften.pdf",
+                mime="application/pdf"
+            )
+            st.markdown("### 🎯 Teilnahme Unterschriften")
+            preset_and_unterschrift = sorted(
+                n for n in NAME_OPTIONS
+                if n in TEILNAHME_PRESET or n in names_with_unterschrift
+            )
+            not_in_preset = sorted(
+                n for n in NAME_OPTIONS
+                if n not in preset_and_unterschrift
+            )
+
+            ac1, ac2, ac3 = st.columns(3)
+            ac1.metric("Auf Liste / Mit Unterschrift",
+                       len(preset_and_unterschrift))
+            ac2.metric("Nicht auf Liste", len(not_in_preset))
+            ac3.metric("Gesamt", len(NAME_OPTIONS))
+
+            col_done3, col_missing3 = st.columns(2)
+            with col_done3:
+                st.markdown(
+                    f"**✅ Auf Liste / Mit Unterschrift ({len(preset_and_unterschrift)})**")
+                for name in preset_and_unterschrift:
+                    st.markdown(
+                        f'<span style="{TAG_PAID}">{name}</span>', unsafe_allow_html=True)
+            with col_missing3:
+                st.markdown(f"**⏳ Nicht auf Liste ({len(not_in_preset)})**")
+                for name in not_in_preset:
                     st.markdown(
                         f'<span style="{TAG_UNPAID}">{name}</span>', unsafe_allow_html=True)
 
@@ -540,7 +537,6 @@ with tab_extra:
         total_standard = 0
         total_mottowoche = 0
         total_stufenfotos = 0
-        total_uploads = 0
         total_free_imgs = 0
 
         for order in orders:
@@ -548,12 +544,11 @@ with tab_extra:
                 len(order.get("gk_typ") or [])
             total_mottowoche += len(order.get("mottowoche") or [])
             total_stufenfotos += len(order.get("stufenfotos") or [])
-            total_uploads += order.get("extra_photos") or 0
             total_free_imgs += min(order.get("image_count")
                                    or 0, AMOUNT_OF_FREE_IMAGES)
 
         total_extra_images = total_standard + total_mottowoche + total_stufenfotos
-        total_all_images = total_extra_images + total_uploads
+        total_all_images = total_extra_images
 
         rev_free = total_free_imgs * NORMAL_IMAGE_PRICE
         rev_extra = sum(
@@ -561,8 +556,7 @@ with tab_extra:
                 AMOUNT_OF_FREE_IMAGES, 0) * NORMAL_IMAGE_PRICE
             for o in orders
         )
-        rev_uploads = total_uploads * UPLOAD_PHOTO_PRICE
-        total_revenue = rev_free + rev_extra + rev_uploads
+        total_revenue = rev_free + rev_extra
         total_print_cost = total_all_images * PRINTING_COST
         total_profit = total_revenue - total_print_cost
 
@@ -573,7 +567,7 @@ with tab_extra:
             "Anzahl Normalbilder (Vorhersage)", min_value=0, value=total_extra_images, step=1
         )
         forecast_uploads = fc2.number_input(
-            "Anzahl Uploads (Vorhersage)", min_value=0, value=total_uploads, step=1
+            "Anzahl Uploads (Vorhersage)", min_value=0, value=0, step=1
         )
 
         forecast_revenue = forecast_normal * NORMAL_IMAGE_PRICE + \
@@ -615,7 +609,6 @@ with tab_extra:
             ("LK / GK Fotos",  total_standard,    NORMAL_IMAGE_PRICE),
             ("Mottowoche",      total_mottowoche,  NORMAL_IMAGE_PRICE),
             ("Stufenfotos",     total_stufenfotos, NORMAL_IMAGE_PRICE),
-            ("Eigene Uploads",  total_uploads,     UPLOAD_PHOTO_PRICE),
         ]
         for row_label, count, price in breakdown_rows:
             rev = count * price

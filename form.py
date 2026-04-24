@@ -14,14 +14,12 @@ from helper.constants import (
 )
 from helper.auth import get_headers
 from helper.config import (
-    MAX_IMAGES,
     NORMAL_IMAGE_PRICE,
-    UPLOAD_PHOTO_PRICE,
     AMOUNT_OF_FREE_IMAGES
 )
 from helper.utils import (
-    upload_image_to_supabase,
-    calculate_extra_cost
+    calculate_extra_cost,
+    upload_image_to_supabase
 )
 
 # ── PAGE ──────────────────────────────────────────────────────────────────────
@@ -112,8 +110,7 @@ with tab_merch:
 with tab_foto:
     st.write(
         f"{AMOUNT_OF_FREE_IMAGES} Bilder sind gratis. "
-        f"Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€. "
-        f"Ihr könnt auch eigene Fotos drucken lassen für {UPLOAD_PHOTO_PRICE:.2f}€."
+        f"Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€."
     )
     st.write("12,7 x 17,8cm - matt")
 
@@ -193,33 +190,11 @@ with tab_foto:
                 with cols[idx % 2]:
                     st.image(img_url, caption=STUFEN_LABELS.get(s, str(s)))
 
-    # Image upload
-    st.subheader("Eigene Fotos hochladen zum drucken (optional)")
-    st.write(f"{UPLOAD_PHOTO_PRICE:.2f}€ pro Bild")
-    uploaded_files = st.file_uploader(
-        "Fotos auswählen",
-        type=["jpg", "jpeg", "png", "webp"],
-        accept_multiple_files=True
-    )
-
-    if uploaded_files and len(uploaded_files) > MAX_IMAGES:
-        uploaded_files = uploaded_files[:MAX_IMAGES]
-        st.error(f"❌ Maximal {MAX_IMAGES} Bilder erlaubt.")
-
-    amount_uploaded_fotos = len(uploaded_files) if uploaded_files else 0
-
-    if uploaded_files:
-        with st.expander("📸 Vorschau der hochgeladenen Fotos"):
-            cols = st.columns(2)
-            for idx, image in enumerate(uploaded_files):
-                with cols[idx % 2]:
-                    st.image(image, caption=image.name)
-
     # Cost calculation
     num_images = len(lk_typ) + len(gk_typ) + \
         len(selected_mottos) + len(selected_stufen)
     extra_cost = calculate_extra_cost(
-        num_images=num_images, extra_photos=amount_uploaded_fotos)
+        num_images=num_images, extra_photos=0)
     covered_images = min(num_images, AMOUNT_OF_FREE_IMAGES)
 
     if extra_cost > 0:
@@ -278,7 +253,7 @@ with tab_foto:
             "gk_typ": gk_typ,
             "mottowoche": selected_mottos,
             "stufenfotos": selected_stufen,
-            "extra_photos": amount_uploaded_fotos,
+            "extra_photos": 0,
             "image_count": num_images,
             "paid": extra_cost == 0,
             "created_at": datetime.now().isoformat(),
@@ -296,34 +271,5 @@ with tab_foto:
             st.stop()
 
         order_id = order_response.json()[0]["id"]
-
-        if uploaded_files:
-            with st.spinner("Bilder werden hochgeladen..."):
-                for i, file in enumerate(uploaded_files):
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
-                    safe_name = foto_name.replace(" ", "_")
-                    ext = file.name.split(".")[-1]
-                    filename = f"{safe_name}_{timestamp}.{ext}"
-
-                    url = upload_image_to_supabase(file, filename)
-                    if url is None:
-                        st.stop()
-
-                    img_data = {
-                        "order_id": order_id,
-                        "url": url,
-                        "filename": filename,
-                        "position": i + 1
-                    }
-                    img_response = requests.post(
-                        f"{SUPABASE_URL}/rest/v1/order_images",
-                        json=img_data,
-                        headers={**get_headers(), "Prefer": "return=minimal"},
-                        timeout=10
-                    )
-                    if img_response.status_code not in [200, 201, 204]:
-                        st.error(
-                            f"❌ Bilddaten konnten nicht gespeichert werden: {img_response.text}")
-                        st.stop()
 
         st.success("✅ Bestellung gespeichert!")
