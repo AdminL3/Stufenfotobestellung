@@ -15,6 +15,7 @@ MOTTO_LABELS = {
 STUFEN_LABELS = {
     1: "Pausenhof",
     2: "Abau Treppe",
+    3: "Abau Spaßbild",
 }
 
 BUCKET_NAME = "images"
@@ -183,64 +184,33 @@ TAG_PAID = "display:flex;align-items:center;background:#0d3b2e;border:1px solid 
 TAG_UNPAID = "display:flex;align-items:center;background:#3b1a1a;border:1px solid #7a3030;color:#ff7070;border-radius:20px;padding:3px 12px;font-size:0.82rem;font-weight:500;line-height:1.4;margin-bottom:10px;"
 
 
+BASE_URL = "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/"
+
+
+def img(name):
+    return f"{BASE_URL}{name}.JPG"
+
+
 PREVIEW_IMAGES = {
     "lk": {
-        "Englisch": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Geschichte": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Geo": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Sport": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Kunst": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Französisch": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Physik": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        }
+        "Englisch":    {"Normalbild": img("E1"), "Spaßbild": img("E2")},
+        "Geschichte":  {"Normalbild": img("Ge1"), "Spaßbild": img("Ge2")},
+        "Geo":         {"Normalbild": img("G1"), "Spaßbild": img("G2")},
+        "Sport":       {"Normalbild": img("S1"), "Spaßbild": img("S2")},
+        "Kunst":       {"Normalbild": img("K1"), "Spaßbild": img("K2")},
+        "Französisch": {"Normalbild": img("F1"), "Spaßbild": img("F2")},
+        "Physik":      {"Normalbild": img("P1"), "Spaßbild": img("P2")},
     },
     "gk": {
-        "Grundkurs 1": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Grundkurs 2": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Grundkurs 3": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        },
-        "Grundkurs 4": {
-            "Normalbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-            "Spaßbild": "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
-        }
+        f"Grundkurs {i}": {"Normalbild": img(f"{i}1"), "Spaßbild": img(f"{i}2")}
+        for i in range(1, 5)
     },
     "mottowoche": {
-        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        3: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        4: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        5: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        i: img(f"M{i}") for i in range(1, 6)
     },
     "stufenfotos": {
-        1: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg",
-        2: "https://arhkqltxvrrkpkyxyfoe.supabase.co/storage/v1/object/public/images/Freitag.jpeg"
+        1: img("Pausenhof"),
+        2: img("Treppe"),
+        3: img("Spass"),
     }
 }
