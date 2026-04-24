@@ -537,80 +537,55 @@ with tab_extra:
         total_standard = 0
         total_mottowoche = 0
         total_stufenfotos = 0
+        free_standard = 0
+        free_mottowoche = 0
+        free_stufenfotos = 0
         total_free_imgs = 0
+        total_images = 0
+
+        def split_free(counts: list[int], budget: int) -> list[int]:
+            """Distribute a free-image budget across categories in order."""
+            result = []
+            remaining = budget
+            for c in counts:
+                taken = min(c, remaining)
+                result.append(taken)
+                remaining -= taken
+            return result
 
         for order in orders:
-            total_standard += len(order.get("lk_typ") or []) + \
+            standard = len(order.get("lk_typ") or []) + \
                 len(order.get("gk_typ") or [])
-            total_mottowoche += len(order.get("mottowoche") or [])
-            total_stufenfotos += len(order.get("stufenfotos") or [])
-            total_free_imgs += min(order.get("image_count")
-                                   or 0, AMOUNT_OF_FREE_IMAGES)
+            mottowoche = len(order.get("mottowoche") or [])
+            stufenfotos = len(order.get("stufenfotos") or [])
+            image_count = order.get("image_count") or 0
 
-        total_extra_images = total_standard + total_mottowoche + total_stufenfotos
-        total_all_images = total_extra_images
+            total_standard += standard
+            total_mottowoche += mottowoche
+            total_stufenfotos += stufenfotos
+            total_images += image_count
+            total_free_imgs += min(image_count, AMOUNT_OF_FREE_IMAGES)
 
-        rev_free = total_free_imgs * NORMAL_IMAGE_PRICE
-        rev_extra = sum(
-            max((o.get("image_count") or 0) -
-                AMOUNT_OF_FREE_IMAGES, 0) * NORMAL_IMAGE_PRICE
-            for o in orders
-        )
-        total_revenue = rev_free + rev_extra
-        total_print_cost = total_all_images * PRINTING_COST
-        total_profit = total_revenue - total_print_cost
-
-        # Forecast
-        st.markdown("#### Gewinnvorhersage")
-        fc1, fc2 = st.columns(2)
-        forecast_normal = fc1.number_input(
-            "Anzahl Normalbilder (Vorhersage)", min_value=0, value=total_extra_images, step=1
-        )
-        forecast_uploads = fc2.number_input(
-            "Anzahl Uploads (Vorhersage)", min_value=0, value=0, step=1
-        )
-
-        forecast_revenue = forecast_normal * NORMAL_IMAGE_PRICE + \
-            forecast_uploads * UPLOAD_PHOTO_PRICE
-        forecast_cost = (forecast_normal + forecast_uploads) * PRINTING_COST
-        forecast_profit = forecast_revenue - forecast_cost
-
-        f1, f2, f3 = st.columns(3)
-        f1.metric("Erwartete Einnahmen", f"{forecast_revenue:.2f}€")
-        f2.metric("Erwartete Druckkosten", f"{forecast_cost:.2f}€")
-        f3.metric("Erwarteter Gewinn", f"{forecast_profit:.2f}€")
-
-        st.divider()
+            fs, fm, fsf = split_free(
+                [standard, mottowoche, stufenfotos], AMOUNT_OF_FREE_IMAGES)
+            free_standard += fs
+            free_mottowoche += fm
+            free_stufenfotos += fsf
 
         # Gratis images (Abikasse)
         st.markdown("#### Gratis-Bilder (Abikasse zahlt)")
         _h = st.columns([3, 1, 1, 1, 1])
         for col, label in zip(_h, ["**Typ**", "**Anzahl**", "**Verkaufspreis**", "**Druckkosten**", "**Gewinn**"]):
             col.markdown(label)
-
+        breakdown_rows1 = [
+            ("LK / GK Fotos",  free_standard,    NORMAL_IMAGE_PRICE),
+            ("Mottowoche",      free_mottowoche,  NORMAL_IMAGE_PRICE),
+            ("Stufenfotos",     free_stufenfotos, NORMAL_IMAGE_PRICE),
+        ]
         rev = total_free_imgs * NORMAL_IMAGE_PRICE
         cost = total_free_imgs * PRINTING_COST
         _c = st.columns([3, 1, 1, 1, 1])
-        _c[0].write(f"Normalbild ({AMOUNT_OF_FREE_IMAGES} gratis)")
-        _c[1].write(str(total_free_imgs))
-        _c[2].write(f"{rev:.2f}€")
-        _c[3].write(f"{cost:.2f}€")
-        _c[4].write(f"**{rev - cost:.2f}€**")
-
-        st.divider()
-
-        # Extra images (student pays)
-        st.markdown("#### Extra-Bilder (Student zahlt)")
-        _h2 = st.columns([3, 1, 1, 1, 1])
-        for col, label in zip(_h2, ["**Typ**", "**Anzahl**", "**Verkaufspreis**", "**Druckkosten**", "**Gewinn**"]):
-            col.markdown(label)
-
-        breakdown_rows = [
-            ("LK / GK Fotos",  total_standard,    NORMAL_IMAGE_PRICE),
-            ("Mottowoche",      total_mottowoche,  NORMAL_IMAGE_PRICE),
-            ("Stufenfotos",     total_stufenfotos, NORMAL_IMAGE_PRICE),
-        ]
-        for row_label, count, price in breakdown_rows:
+        for row_label, count, price in breakdown_rows1:
             rev = count * price
             cost = count * PRINTING_COST
             _c = st.columns([3, 1, 1, 1, 1])
@@ -620,8 +595,42 @@ with tab_extra:
             _c[3].write(f"{cost:.2f}€")
             _c[4].write(f"**{rev - cost:.2f}€**")
 
+        free_revenue = total_free_imgs * NORMAL_IMAGE_PRICE
+        free_print_cost = total_free_imgs * PRINTING_COST
+        free_profit = free_revenue - free_print_cost
         s0, s1, s2, s3, s4 = st.columns([3, 1, 1, 1, 1])
-        s1.metric("Anzahl Bilder", str(total_all_images))
+        s1.metric("Anzahl Bilder", str(total_free_imgs))
+        s2.metric("Gesamteinnahmen", f"{free_revenue:.2f}€")
+        s3.metric("Druckkosten gesamt", f"{free_print_cost:.2f}€")
+        s4.metric("Gewinn", f"{free_profit:.2f}€")
+        st.divider()
+
+        # Extra images (student pays)
+        st.markdown("#### Alle-Bilder")
+        _h2 = st.columns([3, 1, 1, 1, 1])
+        for col, label in zip(_h2, ["**Typ**", "**Anzahl**", "**Verkaufspreis**", "**Druckkosten**", "**Gewinn**"]):
+            col.markdown(label)
+
+        breakdown_rows2 = [
+            ("LK / GK Fotos",   total_standard,    NORMAL_IMAGE_PRICE),
+            ("Mottowoche",      total_mottowoche,  NORMAL_IMAGE_PRICE),
+            ("Stufenfotos",     total_stufenfotos, NORMAL_IMAGE_PRICE),
+        ]
+        for row_label, count, price in breakdown_rows2:
+            rev = count * price
+            cost = count * PRINTING_COST
+            _c = st.columns([3, 1, 1, 1, 1])
+            _c[0].write(row_label)
+            _c[1].write(str(count))
+            _c[2].write(f"{rev:.2f}€")
+            _c[3].write(f"{cost:.2f}€")
+            _c[4].write(f"**{rev - cost:.2f}€**")
+
+        total_revenue = total_images * NORMAL_IMAGE_PRICE
+        total_print_cost = total_images * PRINTING_COST
+        total_profit = total_revenue - total_print_cost
+        s0, s1, s2, s3, s4 = st.columns([3, 1, 1, 1, 1])
+        s1.metric("Anzahl Bilder", str(total_images))
         s2.metric("Gesamteinnahmen", f"{total_revenue:.2f}€")
         s3.metric("Druckkosten gesamt", f"{total_print_cost:.2f}€")
         s4.metric("Gewinn", f"{total_profit:.2f}€")
