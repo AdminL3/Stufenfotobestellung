@@ -295,10 +295,10 @@ with tab_foto:
             if abikasse_data:
                 st.dataframe(pd.DataFrame(abikasse_data),
                              use_container_width=True, hide_index=True)
-                c1, c2 = st.columns([2, 2])
-                c1.metric("Gesamt Gratis-Bilder", total_free_count)
-                c2.metric("Abikasse zahlt gesamt",
-                          f"{total_abikasse_cost:.2f}€")
+                abikasse_c1, abikasse_c2 = st.columns([2, 2])
+                abikasse_c1.metric("Gesamt Gratis-Bilder", total_free_count)
+                abikasse_c2.metric("Abikasse zahlt gesamt",
+                                   f"{total_abikasse_cost:.2f}€")
             else:
                 st.info("Keine Bestellungen mit Gratis-Bildern vorhanden.")
 

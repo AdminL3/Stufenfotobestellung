@@ -26,15 +26,11 @@ from helper.utils import (
 st.set_page_config(page_title="Bestellung")
 st.title("Hoodie und Foto Bestellung")
 
-# ── TABS ──────────────────────────────────────────────────────────────────────
-tab_merch, tab_foto = st.tabs(["Hoodies", "Fotos"])
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 1 - HOODIE BESTELLUNG
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_merch:
-
+def render_merch_tab():
     merch_name = st.selectbox(
         "Name auswählen", [""] + NAME_OPTIONS, key="merch_name")
 
@@ -107,7 +103,7 @@ with tab_merch:
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 2 - FOTOBESTELLUNG
 # ══════════════════════════════════════════════════════════════════════════════
-with tab_foto:
+def render_foto_tab():
     st.write(
         f"{AMOUNT_OF_FREE_IMAGES} Bilder sind gratis. "
         f"Jedes weitere Bild kostet {NORMAL_IMAGE_PRICE:.2f}€."
@@ -273,3 +269,14 @@ with tab_foto:
         order_id = order_response.json()[0]["id"]
 
         st.success("✅ Bestellung gespeichert!")
+
+
+if AMOUNT_OF_FREE_IMAGES == 2:
+    # ── TABS ──────────────────────────────────────────────────────────────────────
+    tab_merch, tab_foto = st.tabs(["Hoodies", "Fotos"])
+    with tab_merch:
+        render_merch_tab()
+    with tab_foto:
+        render_foto_tab()
+else:
+    render_merch_tab()
