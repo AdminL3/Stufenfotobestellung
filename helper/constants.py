@@ -1,7 +1,7 @@
 import os
 import streamlit as st
 LK_OPTIONS = ["Englisch", "Geschichte", "Geo",
-              "Sport", "Kunst", "Französisch", "Physik"]
+              "Sport", "Kunst", "Französisch", "Physik", "Informatik"]
 GK_OPTIONS = ["Grundkurs 1", "Grundkurs 2", "Grundkurs 3", "Grundkurs 4"]
 
 MOTTO_LABELS = {
@@ -280,6 +280,7 @@ PREVIEW_IMAGES = {
         "Kunst":       {"Normalbild": img("K1"), "Spaßbild": img("K2")},
         "Französisch": {"Normalbild": img("F1"), "Spaßbild": img("F2")},
         "Physik":      {"Normalbild": img("P1"), "Spaßbild": img("P2")},
+        "Informatik":  {"Normalbild": img("I1"), "Spaßbild": img("I2")},
     },
     "gk": {
         f"Grundkurs {i}": {"Normalbild": img(f"{i}1"), "Spaßbild": img(f"{i}2")}
