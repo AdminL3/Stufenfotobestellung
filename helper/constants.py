@@ -180,7 +180,7 @@ TEILNAHME_PRESET = names = [
     "Sebastian Gebert",
     "Martin Matov",
     "Stefan Sysoltsev",
-    "Julian Geiss",
+    "Julian Geiß",
     "Lukas Matt",
     "Sarah Tariq",
     "Benno Gleim",
