@@ -123,7 +123,7 @@ NAME_OPTIONS = [
     "Zoe Lehmann"
 ]
 
-TEILNAHME_PRESET = names = [
+TEILNAHME_PRESET = [
     "Celine Aslan",
     "Salih Hassan",
     "Jana Paul",
@@ -200,7 +200,8 @@ TEILNAHME_PRESET = names = [
     "Ferdinand Zanker",
     "Oliver Hanich",
     "Lars Oswald",
-    "Lazara Zdravic"
+    "Lazara Zdravic",
+    "Nils Frör"
 ]
 
 SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL"]

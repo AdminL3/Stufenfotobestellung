@@ -6,6 +6,8 @@ from collections import defaultdict
 from reportlab.lib.units import cm
 from reportlab.lib import colors
 from datetime import datetime
+import re
+import unicodedata
 import streamlit as st
 from helper.auth import get_headers
 from helper.constants import (
@@ -47,6 +49,14 @@ def update_payment(order_id, paid: bool):
         timeout=10
     )
     return resp.status_code in [200, 201, 204]
+
+
+def sanitize_storage_filename(filename: str) -> str:
+    normalized = unicodedata.normalize("NFKD", filename)
+    ascii_filename = normalized.encode("ascii", "ignore").decode("ascii")
+    ascii_filename = re.sub(r"[^A-Za-z0-9._-]+", "_", ascii_filename)
+    ascii_filename = re.sub(r"_+", "_", ascii_filename).strip("._-")
+    return ascii_filename or "file"
 
 
 def build_image_map(images):
@@ -623,7 +633,8 @@ def generate_teilnahme_pdf_all(orders, merch_orders):
     max_rows = max(len(preset_and_unterschrift), len(not_in_preset))
     for i in range(max_rows):
         submitted_name = Paragraph(
-            preset_and_unterschrift[i] if i < len(preset_and_unterschrift) else "",
+            preset_and_unterschrift[i] if i < len(
+                preset_and_unterschrift) else "",
             ParagraphStyle("Sub", parent=cell_style,
                            textColor=colors.HexColor("#1a7a5a"))
         ) if i < len(preset_and_unterschrift) else Paragraph("", cell_style)

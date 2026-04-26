@@ -19,6 +19,7 @@ from helper.config import (
 )
 from helper.utils import (
     calculate_extra_cost,
+    sanitize_storage_filename,
     upload_image_to_supabase
 )
 
@@ -71,8 +72,8 @@ def render_merch_tab():
         if design_file:
             with st.spinner("Unterschrift wird hochgeladen..."):
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")
-                safe_name = merch_name.replace(" ", "_")
-                ext = design_file.name.split(".")[-1]
+                safe_name = sanitize_storage_filename(merch_name)
+                ext = sanitize_storage_filename(design_file.name.rsplit(".", 1)[-1])
                 filename = f"hoodie_{safe_name}_{timestamp}.{ext}"
                 design_url = upload_image_to_supabase(design_file, filename)
                 if design_url is None:

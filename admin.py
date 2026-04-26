@@ -82,7 +82,7 @@ with col_title:
     st.caption(
         f"{len(orders)} Fotobestellungen · {len(merch_orders)} Hoodie-Bestellungen")
 with col_refresh:
-    if st.button("🔄 Aktualisieren", use_container_width=True):
+    if st.button("🔄 Aktualisieren", width="stretch"):
         _load_all()
         st.rerun()
 
@@ -294,7 +294,7 @@ with tab_foto:
             total_abikasse_cost += cost
         if abikasse_data:
             st.dataframe(pd.DataFrame(abikasse_data),
-                         use_container_width=True, hide_index=True)
+                         width="stretch", hide_index=True)
             abikasse_c1, abikasse_c2 = st.columns([2, 2])
             abikasse_c1.metric("Gesamt Gratis-Bilder", total_free_count)
             abikasse_c2.metric("Abikasse zahlt gesamt",
@@ -307,7 +307,7 @@ with tab_foto:
             data=generate_abikasse_pdf(orders),
             file_name="Abikasse_Abrechnung.pdf",
             mime="application/pdf",
-            use_container_width=True,
+            width="stretch",
             key="download_abikasse_tab",
         )
 
@@ -335,7 +335,7 @@ with tab_hoodie:
                 for o in sorted(merch_orders, key=lambda x: x.get("name", ""))
             ]
             st.dataframe(pd.DataFrame(hoodie_rows),
-                         use_container_width=True, hide_index=True)
+                         width="stretch", hide_index=True)
 
 # Hoodie-Bestellungen — Detailübersicht
     with hoodie_overview:
@@ -358,7 +358,7 @@ with tab_hoodie:
                 matrix_data.append(row)
 
             st.dataframe(pd.DataFrame(matrix_data),
-                         use_container_width=True, hide_index=True)
+                         width="stretch", hide_index=True)
 
     with hoodie_unterschriften:
         st.markdown("### Hochgeladene Unterschriften")
@@ -372,7 +372,7 @@ with tab_hoodie:
             cols = st.columns(3)
             for i, order in enumerate(sorted(orders_with_design, key=lambda x: x.get("name", ""))):
                 with cols[i % 3]:
-                    st.image(order["design_image"], use_container_width=True)
+                    st.image(order["design_image"], width="stretch")
                     st.caption(
                         f"{order.get('name', '?')} · {order.get('size', '?')} · {order.get('color', '?')}")
 
