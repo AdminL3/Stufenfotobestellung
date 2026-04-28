@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from collections import defaultdict
 from typing import Any
 
@@ -36,7 +34,6 @@ from helper.utils import (
     format_label,
     generate_abikasse_pdf,
     generate_hoodie_pdf,
-    generate_teilnahme_pdf,
     generate_teilnahme_pdf_foto,
     generate_teilnahme_pdf_hoodie,
     generate_teilnahme_pdf_all,
@@ -142,12 +139,25 @@ with tab_foto:
             search_query = st.text_input(
                 "🔍 Name suchen", placeholder="Max Mustermann")
 
+        def _status_group(order: dict) -> int:
+            extra_cost = calculate_extra_cost(order=order)
+            if extra_cost == 0:
+                return 2  # free
+            if order.get("paid", False):
+                return 1  # paid
+            return 0  # unpaid
+
         filtered_orders = [
             o for o in orders
-            if not (show_filter == "Nur Ausstehende" and o.get("paid", False))
-            and not (show_filter == "Nur Bezahlte" and not o.get("paid", False))
+            if not (show_filter == "Nur Ausstehende" and _status_group(o) != 0)
+            and not (show_filter == "Nur Bezahlte" and _status_group(o) != 1)
             and (not search_query or search_query.lower() in o.get("name", "").lower())
         ]
+
+        filtered_orders = sorted(
+            filtered_orders,
+            key=lambda o: (_status_group(o), o.get("name", "").lower())
+        )
 
         if search_query and not filtered_orders:
             st.warning(f"Keine Bestellung für '{search_query}' gefunden.")
