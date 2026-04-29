@@ -34,6 +34,8 @@ from helper.utils import (
     format_label,
     generate_abikasse_pdf,
     generate_hoodie_pdf,
+    generate_photos_by_person_pdf,
+    generate_photos_by_image_pdf,
     generate_teilnahme_pdf_foto,
     generate_teilnahme_pdf_hoodie,
     generate_teilnahme_pdf_all,
@@ -94,6 +96,26 @@ with tab_foto:
     )
 
     with sub_bilder:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.download_button(
+                label="⬇️ Nach Person",
+                data=generate_photos_by_person_pdf(orders),
+                file_name="Fotobestellung_Nach_Person.pdf",
+                mime="application/pdf",
+                width="stretch",
+                key="download_photos_person",
+            )
+        with col2:
+            st.download_button(
+                label="⬇️ Nach Bildtyp",
+                data=generate_photos_by_image_pdf(orders),
+                file_name="Fotobestellung_Nach_Bildtyp.pdf",
+                mime="application/pdf",
+                width="stretch",
+                key="download_photos_image",
+            )
+
         if not picture_map:
             st.info("Noch keine Bestellungen vorhanden.")
         else:

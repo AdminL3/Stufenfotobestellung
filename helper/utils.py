@@ -356,6 +356,7 @@ def generate_hoodie_pdf(merch_orders):
     buffer.seek(0)
     return buffer.read()
 
+
 def generate_teilnahme_pdf_foto(orders):
     """Generate PDF with only Foto participation"""
     buffer = io.BytesIO()
@@ -551,6 +552,179 @@ def generate_teilnahme_pdf_all(orders, merch_orders):
     doc.build(story)
     buffer.seek(0)
     return buffer.read()
+
+
+def generate_photos_by_person_pdf(orders):
+    """Generate detailed PDF export of all photo orders (organized by person)"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    title_style, subtitle_style, heading_style, normal_style = _base_styles()
+    header_style = ParagraphStyle("Header", parent=normal_style,
+                                  fontSize=8, textColor=colors.white, fontName="Helvetica-Bold")
+    cell_style = ParagraphStyle("Cell", parent=normal_style, fontSize=8)
+    paid_style = ParagraphStyle("Cell", parent=cell_style,
+                                textColor=colors.HexColor("#1a7a5a"))
+    unpaid_style = ParagraphStyle("Cell", parent=cell_style,
+                                  textColor=colors.HexColor("#cc3333"))
+
+    story = []
+    story.append(Paragraph("Fotobestellung - Nach Person", title_style))
+    story.append(Paragraph(
+        f"Datum: {datetime.now().strftime('%d.%m.%Y %H:%M')}", subtitle_style))
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    # Create table with all orders
+    header_row = [
+        Paragraph("Name", header_style),
+        Paragraph("LK", header_style),
+        Paragraph("LK Typ", header_style),
+        Paragraph("GK", header_style),
+        Paragraph("GK Typ", header_style),
+        Paragraph("Motto", header_style),
+        Paragraph("Stufe", header_style),
+        Paragraph("Bilder", header_style),
+        Paragraph("Bezahlt", header_style),
+    ]
+
+    rows = [header_row]
+    total_images = 0
+
+    for order in sorted(orders, key=lambda x: x.get("name", "")):
+        name = order.get("name", "?")
+        lk = order.get("leistungskurs", "-")
+        lk_typ = ", ".join(order.get("lk_typ", []))
+        gk = order.get("grundkurs", "-")
+        gk_typ = ", ".join(order.get("gk_typ", []))
+
+        # Convert motto indices to labels
+        motto_labels = [MOTTO_LABELS.get(int(m), str(m))
+                        for m in (order.get("mottowoche") or [])]
+        motto_str = ", ".join(motto_labels)
+
+        # Convert stufe indices to labels
+        stufe_labels = [STUFEN_LABELS.get(int(s), str(
+            s)) for s in (order.get("stufenfotos") or [])]
+        stufe_str = ", ".join(stufe_labels)
+
+        image_count = order.get("image_count", 0)
+        total_images += image_count
+
+        paid = order.get("paid", False)
+        paid_text = "✓ Ja" if paid else "⏳ Nein"
+        paid_paragraph = Paragraph(
+            paid_text, paid_style if paid else unpaid_style)
+
+        rows.append([
+            Paragraph(name, cell_style),
+            Paragraph(lk, cell_style),
+            Paragraph(lk_typ, cell_style),
+            Paragraph(gk, cell_style),
+            Paragraph(gk_typ, cell_style),
+            Paragraph(motto_str, cell_style),
+            Paragraph(stufe_str, cell_style),
+            Paragraph(str(image_count), cell_style),
+            paid_paragraph,
+        ])
+
+    t = Table(rows, colWidths=[2*cm, 1.5*cm, 2*cm,
+              1.5*cm, 2*cm, 2*cm, 2*cm, 1*cm, 1.5*cm])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1),
+         [colors.HexColor("#f9f9f9"), colors.white]),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 4),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#dddddd")),
+    ]))
+    story.append(t)
+
+    # Add summary
+    story.append(Spacer(1, 12))
+    summary_text = f"Gesamt: {len(orders)} Bestellungen | {total_images} Bilder"
+    story.append(Paragraph(summary_text, heading_style))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
+
+def generate_photos_by_image_pdf(orders):
+    """Generate PDF export organized by image type (for calling out names during distribution)"""
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            leftMargin=2*cm, rightMargin=2*cm,
+                            topMargin=2*cm, bottomMargin=2*cm)
+    title_style, subtitle_style, heading_style, normal_style = _base_styles()
+
+    story = []
+    story.append(Paragraph("Fotobestellung - Nach Bildtyp", title_style))
+    story.append(Paragraph(
+        f"Datum: {datetime.now().strftime('%d.%m.%Y %H:%M')}", subtitle_style))
+    story.append(HRFlowable(width="100%", thickness=1,
+                 color=colors.HexColor("#dddddd"), spaceAfter=16))
+
+    # Build picture map to get image types
+    picture_map = build_picture_map(orders)
+
+    def sort_key(item):
+        """Custom sort order: GK Normal, GK Spaß, LK Normal, LK Spaß, Motto, Stufe, Extra"""
+        key, _ = item
+        if key[0] == "gk":
+            # GK: (0, kurs_name, 0 for Normalbild, 1 for Spaßbild)
+            typ_order = 0 if key[2] == "Normalbild" else 1
+            return (0, key[1], typ_order)
+        elif key[0] == "lk":
+            # LK: (1, kurs_name, 0 for Normalbild, 1 for Spaßbild)
+            typ_order = 0 if key[2] == "Normalbild" else 1
+            return (1, key[1], typ_order)
+        elif key[0] == "motto":
+            # Motto: (2, motto_index)
+            return (2, key[1])
+        elif key[0] == "stufe":
+            # Stufe: (3, stufe_index)
+            return (3, key[1])
+        else:  # extra
+            return (4,)
+
+    # Sort picture_map by custom order
+    sorted_items = sorted(picture_map.items(), key=sort_key)
+
+    for image_label, entries in sorted_items:
+        story.append(Paragraph(format_label(image_label), heading_style))
+
+        paid_names = sorted([n for n, paid in entries if paid])
+        unpaid_names = sorted([n for n, paid in entries if not paid])
+
+        # Create content for this image type
+        if paid_names:
+            paid_list = ", ".join(paid_names)
+            paid_text_style = ParagraphStyle("PaidText", parent=normal_style,
+                                             textColor=colors.HexColor(
+                                                 "#1a7a5a"),
+                                             fontSize=9, fontName="Helvetica-Bold")
+            story.append(Paragraph(f"✓ {paid_list}", paid_text_style))
+
+        if unpaid_names:
+            unpaid_list = ", ".join(unpaid_names)
+            unpaid_text_style = ParagraphStyle("UnpaidText", parent=normal_style,
+                                               textColor=colors.HexColor(
+                                                   "#cc3333"),
+                                               fontSize=9)
+            story.append(Paragraph(f"⏳ {unpaid_list}", unpaid_text_style))
+
+        story.append(Spacer(1, 8))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
+
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as z:
         for img in images_list:
