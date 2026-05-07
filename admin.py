@@ -1,5 +1,7 @@
 from collections import defaultdict
 from typing import Any
+import io
+import zipfile
 
 import pandas as pd
 import requests
@@ -40,7 +42,8 @@ from helper.utils import (
     generate_teilnahme_pdf_hoodie,
     generate_teilnahme_pdf_all,
     update_payment,
-    get_headers
+    get_headers,
+    sanitize_storage_filename
 )
 
 st.set_page_config(page_title="Bestellungsverwaltung", layout="wide")
@@ -91,8 +94,8 @@ tab_foto, tab_hoodie, tab_extra = st.tabs(
 
 # region Fotobestellung
 with tab_foto:
-    sub_bilder, sub_zahlungen, sub_archiv, sub_abikasse = st.tabs(
-        ["Bilder", "Zahlungen", "Archiv", "Abikasse"]
+    sub_bilder, sub_bundel, sub_zahlungen, sub_archiv, sub_abikasse = st.tabs(
+        ["Bilder", "Bündel", "Zahlungen", "Archiv", "Abikasse"]
     )
 
     with sub_bilder:
@@ -131,6 +134,93 @@ with tab_foto:
                         + "</div>",
                         unsafe_allow_html=True,
                     )
+
+    # region Bündel
+    with sub_bundel:
+        st.caption(
+            "Wähle ein paar Personen, dann werden ihre bestellten Bilder gemeinsam angezeigt.")
+
+        all_people = sorted(set(o.get("name", "?") for o in orders))
+        selected_people = st.multiselect(
+            "Personen auswählen:",
+            all_people,
+            key="bundle_people_select"
+        )
+
+        selected_orders = [o for o in orders if o.get(
+            "name") in selected_people]
+
+        if selected_people:
+            st.info(f"📊 {len(selected_orders)} Personen ausgewählt")
+
+        if selected_orders:
+            combined_picture_map = build_picture_map(selected_orders)
+
+            st.markdown("### Gemeinsame Übersicht")
+            st.caption(
+                "Alle Bilder der ausgewählten Personen zusammengefasst nach Bildtyp.")
+
+            if combined_picture_map:
+                for key, entries in combined_picture_map.items():
+                    with st.expander(f"{format_label(key)} - {len(entries)} Personen"):
+                        tags = [
+                            f'<span style="{TAG_PAID if paid else TAG_UNPAID}">{name}</span>'
+                            for name, paid in entries
+                        ]
+                        st.markdown(
+                            '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">'
+                            + "".join(tags)
+                            + "</div>",
+                            unsafe_allow_html=True,
+                        )
+
+                st.download_button(
+                    label="⬇️ Kombinierte Übersicht als PDF",
+                    data=generate_photos_by_image_pdf(selected_orders),
+                    file_name="Fotobestellung_Kombiniert.pdf",
+                    mime="application/pdf",
+                    width="stretch",
+                    key="download_bundle_combined_pdf",
+                )
+
+            st.markdown("### Einzelansicht")
+            for order in selected_orders:
+                name = order.get("name", "?")
+                with st.expander(f"👤 {name}"):
+                    lk = order.get("leistungskurs", "")
+                    gk = order.get("grundkurs", "")
+                    lk_typ = order.get("lk_typ") or []
+                    gk_typ = order.get("gk_typ") or []
+                    mottos = order.get("mottowoche") or []
+                    stufen = order.get("stufenfotos") or []
+                    extra = order.get("extra_photos") or 0
+
+                    if lk_typ:
+                        st.write(f"**{lk} Fotos:** {', '.join(lk_typ)}")
+                    if gk_typ:
+                        st.write(f"**{gk}:** {', '.join(gk_typ)}")
+                    if mottos:
+                        motto_names = [MOTTO_LABELS.get(
+                            m, f"Motto {m}") for m in mottos]
+                        st.write(f"**Mottowoche:** {', '.join(motto_names)}")
+                    if stufen:
+                        stufen_names = [STUFEN_LABELS.get(
+                            s, f"Stufen {s}") for s in stufen]
+                        st.write(f"**Stufenfotos:** {', '.join(stufen_names)}")
+                    if extra > 0:
+                        st.write(f"**Zusatzfotos:** {extra}")
+
+                    is_paid = order.get("paid", False)
+                    extra_cost = calculate_extra_cost(order=order)
+                    if extra_cost == 0:
+                        status = "🟦 GRATIS"
+                    elif is_paid:
+                        status = f"✅ BEZAHLT ({extra_cost:.2f}€)"
+                    else:
+                        status = f"❌ AUSSTEHEND ({extra_cost:.2f}€)"
+                    st.caption(f"Status: {status}")
+
+    # endregion
 
     # region Bezahlungen
     with sub_zahlungen:

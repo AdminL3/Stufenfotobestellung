@@ -672,6 +672,12 @@ def generate_photos_by_image_pdf(orders):
 
     # Build picture map to get image types
     picture_map = build_picture_map(orders)
+    total_images = sum(len(entries) for entries in picture_map.values())
+    story.append(Paragraph(
+        f"Gesamt: {len(picture_map)} Bildtypen | {total_images} Bilder | {len(orders)} Personen",
+        subtitle_style,
+    ))
+    story.append(Spacer(1, 8))
 
     def sort_key(item):
         """Custom sort order: GK Normal, GK Spaß, LK Normal, LK Spaß, Motto, Stufe, Extra"""
@@ -697,7 +703,10 @@ def generate_photos_by_image_pdf(orders):
     sorted_items = sorted(picture_map.items(), key=sort_key)
 
     for image_label, entries in sorted_items:
-        story.append(Paragraph(format_label(image_label), heading_style))
+        story.append(Paragraph(
+            f"{format_label(image_label)} ({len(entries)} Bilder)",
+            heading_style,
+        ))
 
         paid_names = sorted([n for n, paid in entries if paid])
         unpaid_names = sorted([n for n, paid in entries if not paid])
